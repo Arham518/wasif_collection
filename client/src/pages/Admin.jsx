@@ -1,26 +1,30 @@
 import { useMemo, useState } from 'react'
-import { formatPKR, mediaUrl, uid } from '../lib/utils'
-import { useCatalog, useProducts, saveImageBlob } from '../store/catalog'
+import LazyImage from '../components/LazyImage'
+import { formatPKR, uid } from '../lib/utils'
+import { useCatalog, useProducts } from '../store/catalog'
+import { saveImageBlob, compressImage, blobToDataUrl } from '../services/imageStore'
 import { ADMIN_PASSWORD, BRANDS, CATEGORIES } from '../data/catalog'
 import { toast } from 'sonner'
 import { Trash2, Plus, LogOut, Package, ShoppingBag } from 'lucide-react'
 
 const TOKEN_KEY = 'pkf-admin-ok'
 
-async function filesToIdbUrls(files) {
-  const urls = []
+// Uploaded photos are shrunk (max 1200px, WebP) and stored in IndexedDB; the product
+// only keeps a short "idb:<key>" reference. Storing full base64 photos in localStorage
+// (as before) hit the ~5 MB browser limit after a few uploads and broke saving/images.
+async function filesToImageRefs(files) {
+  const refs = []
   for (const file of files) {
+    const blob = await compressImage(file)
     const id = uid('img')
-    await saveImageBlob(id, file)
-    // Also keep a data URL fallback for persist across sessions when IDB blob refs aren't in product JSON
-    const dataUrl = await new Promise((resolve) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(reader.result)
-      reader.readAsDataURL(file)
-    })
-    urls.push(dataUrl)
+    try {
+      await saveImageBlob(id, blob)
+      refs.push(`idb:${id}`)
+    } catch {
+      refs.push(await blobToDataUrl(blob))
+    }
   }
-  return urls
+  return refs
 }
 
 export default function Admin() {
@@ -58,8 +62,8 @@ export default function Admin() {
   async function saveProduct(e) {
     e.preventDefault()
     if (!form.name || !form.price) return toast.error('Name and price required')
-    const images = files.length ? await filesToIdbUrls(files) : (editId ? products.find((p) => p.id === editId)?.images || [] : ['/products/w01.jpg'])
-    const images360 = files360.length ? await filesToIdbUrls(files360) : (editId ? products.find((p) => p.id === editId)?.images360 || [] : [])
+    const images = files.length ? await filesToImageRefs(files) : (editId ? products.find((p) => p.id === editId)?.images || [] : ['/products/w01.webp'])
+    const images360 = files360.length ? await filesToImageRefs(files360) : (editId ? products.find((p) => p.id === editId)?.images360 || [] : [])
     const product = {
       id: editId || uid('own'),
       name: form.name,
@@ -104,7 +108,7 @@ export default function Admin() {
   if (!authed) {
     return (
       <div className="container-x py-16 max-w-md">
-        <h1 className="font-display text-3xl mb-2">Wasif Collection — Owner login</h1>
+        <h1 className="font-display text-3xl mb-2">Rana Collection — Owner login</h1>
         <p className="text-sm text-[var(--color-mute)] mb-6">Frontend-only demo. Password: <code>arham123</code></p>
         <form onSubmit={login} className="border border-[var(--color-line)] bg-white p-5 space-y-3">
           <input className="input" type="password" placeholder="Admin password" value={password} onChange={(e) => setPassword(e.target.value)} required />
@@ -117,7 +121,7 @@ export default function Admin() {
   return (
     <div className="container-x py-8">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <h1 className="font-display text-3xl">Wasif Admin</h1>
+        <h1 className="font-display text-3xl">Rana Admin</h1>
         <button className="btn btn-outline" onClick={logout}><LogOut size={14} /> Logout</button>
       </div>
       <div className="flex gap-2 mb-6 flex-wrap">
@@ -164,7 +168,7 @@ export default function Admin() {
         <div className="border border-[var(--color-line)] bg-white divide-y divide-[var(--color-line)]">
           {sorted.map((p) => (
             <div key={p.id} className="flex gap-3 p-3 items-center">
-              <img src={mediaUrl(p.images?.[0])} alt="" className="w-14 h-16 object-cover border border-[var(--color-line)]" />
+              <LazyImage src={p.images?.[0]} alt="" sizes="56px" className="w-14 h-16 shrink-0 border border-[var(--color-line)]" />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium truncate">{p.name}</div>
                 <div className="text-xs text-[var(--color-mute)]">{p.brand} · {p.gender} · {formatPKR(p.price)}</div>

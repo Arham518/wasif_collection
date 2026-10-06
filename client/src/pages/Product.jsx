@@ -1,19 +1,26 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import Product360 from '../components/Product360'
 import ProductCard from '../components/ProductCard'
-import { formatPKR, mediaUrl } from '../lib/utils'
+import LazyImage from '../components/LazyImage'
+import { formatPKR } from '../lib/utils'
+import { warmMedia } from '../lib/imageCache'
 import { useCart } from '../store/cart'
 import { useWishlist } from '../store/wishlist'
 import { useUI } from '../store/ui'
-import { useProduct, useProducts, filterProducts } from '../store/catalog'
+import { useProduct, useCatalogIndex } from '../store/catalog'
 import { toast } from 'sonner'
 import { Heart } from 'lucide-react'
 
+// Keyed by id so size / photo / tab state resets when moving to another product.
 export default function Product() {
   const { id } = useParams()
+  return <ProductView key={id} id={id} />
+}
+
+function ProductView({ id }) {
   const product = useProduct(id)
-  const all = useProducts()
+  const index = useCatalogIndex()
   const has360 = !!(product?.images360?.length)
   const [size, setSize] = useState(product?.sizes?.[1] || product?.sizes?.[0] || 'M')
   const [tab, setTab] = useState('photos')
@@ -21,7 +28,20 @@ export default function Product() {
   const [zoom, setZoom] = useState({ on: false, x: 50, y: 50 })
   const add = useCart((s) => s.add)
   const openCart = useUI((s) => s.openCart)
-  const wish = useWishlist()
+  const liked = useWishlist((s) => !!product && s.ids.includes(product.id))
+  const toggleWish = useWishlist((s) => s.toggle)
+
+  // Warm every photo of this product so switching thumbnails is instant.
+  useEffect(() => {
+    for (const src of product?.images || []) warmMedia(src)
+  }, [product])
+
+  const related = useMemo(() => {
+    if (!product) return []
+    return index.query({ gender: product.gender })
+      .filter((p) => p.id !== product.id && (p.brand === product.brand || p.category === product.category))
+      .slice(0, 8)
+  }, [index, product])
 
   if (!product) {
     return (
@@ -32,8 +52,7 @@ export default function Product() {
     )
   }
 
-  const related = filterProducts(all, { gender: product.gender }).filter((p) => p.id !== product.id && (p.brand === product.brand || p.category === product.category)).slice(0, 8)
-  const mainSrc = mediaUrl(product.images?.[img])
+  const mainSrc = product.images?.[img] || product.images?.[0]
 
   return (
     <div className="container-x py-8">
@@ -60,17 +79,20 @@ export default function Product() {
                 }}
                 onMouseLeave={() => setZoom((z) => ({ ...z, on: false }))}
               >
-                <img
+                <LazyImage
                   src={mainSrc}
                   alt={product.name}
-                  className="w-full h-full object-cover transition-transform duration-150"
-                  style={zoom.on ? { transform: 'scale(1.6)', transformOrigin: `${zoom.x}% ${zoom.y}%` } : undefined}
+                  priority
+                  responsive={false}
+                  className="w-full h-full"
+                  imgClassName="duration-150"
+                  imgStyle={zoom.on ? { transform: 'scale(1.6)', transformOrigin: `${zoom.x}% ${zoom.y}%` } : undefined}
                 />
               </div>
               <div className="flex gap-2 mt-2 overflow-x-auto">
                 {(product.images || []).map((src, i) => (
-                  <button key={i} onClick={() => setImg(i)} className={`shrink-0 w-16 h-20 border ${i === img ? 'border-[var(--color-ink)]' : 'border-[var(--color-line)]'}`}>
-                    <img src={mediaUrl(src)} alt="" className="w-full h-full object-cover" />
+                  <button type="button" key={i} onClick={() => setImg(i)} aria-label={`Photo ${i + 1}`} className={`shrink-0 w-16 h-20 border ${i === img ? 'border-[var(--color-ink)]' : 'border-[var(--color-line)]'}`}>
+                    <LazyImage src={src} alt="" responsive={false} className="w-full h-full" />
                   </button>
                 ))}
               </div>
@@ -101,8 +123,8 @@ export default function Product() {
           </div>
           <div className="flex flex-wrap gap-3">
             <button className="btn flex-1" onClick={() => { add(product, { size }); openCart(); toast.success('Added to bag') }}>Add to bag</button>
-            <button className="btn btn-outline" onClick={() => wish.toggle(product.id)} aria-label="Wishlist">
-              <Heart size={16} fill={wish.has(product.id) ? 'currentColor' : 'none'} />
+            <button className="btn btn-outline" onClick={() => toggleWish(product.id)} aria-label="Wishlist" aria-pressed={liked}>
+              <Heart size={16} fill={liked ? 'currentColor' : 'none'} />
             </button>
           </div>
         </div>

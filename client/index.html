@@ -4,9 +4,20 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Wasif Collection — curated Pakistani lawn, pret & ethnic wear from Khaadi, Gul Ahmed, Bonanza Satrangi, Sana Safinaz and more." />
+    <meta name="description" content="Rana Collection — curated Pakistani lawn, pret & ethnic wear from Khaadi, Gul Ahmed, Bonanza Satrangi, Sana Safinaz and more." />
     <meta name="theme-color" content="#1a1a1a" />
-    <title>Wasif Collection | Pakistani Wear</title>
+    <title>Rana Collection | Pakistani Wear</title>
+    <script>
+      // Start downloading the home-page hero photo in parallel with the JS bundle (LCP).
+      if (location.pathname === '/') {
+        var l = document.createElement('link')
+        l.rel = 'preload'; l.as = 'image'; l.setAttribute('fetchpriority', 'high')
+        l.href = '/products/w02.webp'
+        l.setAttribute('imagesrcset', '/products/w02-400.webp 400w, /products/w02.webp 800w')
+        l.setAttribute('imagesizes', '(min-width: 768px) 50vw, 100vw')
+        document.head.appendChild(l)
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

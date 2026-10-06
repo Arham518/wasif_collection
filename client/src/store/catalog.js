@@ -1,71 +1,27 @@
 import { useMemo } from 'react'
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
+import { toast } from 'sonner'
 import { SEED_PRODUCTS, BRANDS, CATEGORIES, COLORS } from '../data/catalog'
+import { catalogService } from '../services/catalogService'
 
-const OWNER_KEY_IMAGES = 'pkf-owner-blobs' // IndexedDB-ish via idb-keyval pattern using localStorage base64 for simplicity; large images go to IDB
+export { saveImageBlob, getImageUrl } from '../services/imageStore'
 
-function openDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open('pk_fashion_store', 1)
-    req.onupgradeneeded = () => {
-      const db = req.result
-      if (!db.objectStoreNames.contains('images')) db.createObjectStore('images')
+// localStorage wrapper that never crashes the app when the ~5 MB quota is full.
+const safeStorage = {
+  getItem: (k) => { try { return localStorage.getItem(k) } catch { return null } },
+  setItem: (k, v) => {
+    try { localStorage.setItem(k, v) } catch (err) {
+      console.warn('Could not save catalogue to localStorage', err)
+      toast.error('Storage full — remove some owner products or photos.')
     }
-    req.onsuccess = () => resolve(req.result)
-    req.onerror = () => reject(req.error)
-  })
+  },
+  removeItem: (k) => { try { localStorage.removeItem(k) } catch { /* ignore */ } },
 }
 
-export async function saveImageBlob(id, blob) {
-  const db = await openDB()
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction('images', 'readwrite')
-    tx.objectStore('images').put(blob, id)
-    tx.oncomplete = () => resolve(id)
-    tx.onerror = () => reject(tx.error)
-  })
-}
-
-export async function getImageUrl(id) {
-  if (!id || !String(id).startsWith('idb:')) return id
-  const key = String(id).slice(4)
-  const db = await openDB()
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction('images', 'readonly')
-    const req = tx.objectStore('images').get(key)
-    req.onsuccess = () => {
-      if (!req.result) return resolve(null)
-      resolve(URL.createObjectURL(req.result))
-    }
-    req.onerror = () => reject(req.error)
-  })
-}
-
+/** Filter + sort products. Served from the cached ProductIndex when possible. */
 export function filterProducts(list, f = {}) {
-  let out = [...list]
-  if (f.gender) out = out.filter((p) => p.gender === f.gender)
-  if (f.brand) out = out.filter((p) => p.brand.toLowerCase() === String(f.brand).toLowerCase())
-  if (f.category) out = out.filter((p) => p.category.toLowerCase() === String(f.category).toLowerCase())
-  if (f.subcategory) out = out.filter((p) => (p.subcategory || '').toLowerCase() === String(f.subcategory).toLowerCase())
-  if (f.color) out = out.filter((p) => (p.color || '').toLowerCase() === String(f.color).toLowerCase())
-  if (f.minPrice != null && f.minPrice !== '' && !Number.isNaN(Number(f.minPrice))) out = out.filter((p) => p.price >= Number(f.minPrice))
-  if (f.maxPrice != null && f.maxPrice !== '' && !Number.isNaN(Number(f.maxPrice))) out = out.filter((p) => p.price <= Number(f.maxPrice))
-  if (f.featured === true || f.featured === 'true') out = out.filter((p) => p.featured)
-  if (f.q) {
-    const words = String(f.q).toLowerCase().split(/\s+/).filter((w) => w && w.length > 1 && !/^\d+$/.test(w))
-    if (words.length) {
-      out = out.filter((p) => {
-        const hay = `${p.name} ${p.brand} ${p.category} ${p.subcategory} ${p.color} ${(p.tags || []).join(' ')} ${p.description}`.toLowerCase()
-        return words.every((w) => hay.includes(w))
-      })
-    }
-  }
-  if (f.sort === 'price-asc') out.sort((a, b) => a.price - b.price)
-  else if (f.sort === 'price-desc') out.sort((a, b) => b.price - a.price)
-  else if (f.sort === 'newest') out.sort((a, b) => String(b.id).localeCompare(String(a.id)))
-  else if (f.sort === 'rating') out.sort((a, b) => (b.rating || 0) - (a.rating || 0))
-  return out
+  return catalogService.filter(list, f)
 }
 
 export function runAssistant(message, products) {
@@ -117,29 +73,9 @@ export const useCatalog = create(
       ownerProducts: [], // added/edited by owner (overrides seed by id)
       deletedIds: [],
       orders: [],
-      all: () => {
-        const { ownerProducts, deletedIds } = get()
-        const map = new Map()
-        for (const p of SEED_PRODUCTS) {
-          if (!deletedIds.includes(p.id)) map.set(p.id, p)
-        }
-        for (const p of ownerProducts) map.set(p.id, p)
-        return [...map.values()]
-      },
-      getById: (id) => get().all().find((p) => p.id === id),
-      meta: () => {
-        const products = get().all()
-        return {
-          brands: [...new Set(products.map((p) => p.brand))].sort(),
-          categories: [...new Set(products.map((p) => p.category))].sort(),
-          colors: [...new Set(products.map((p) => p.color).filter(Boolean))].sort(),
-          counts: {
-            total: products.length,
-            women: products.filter((p) => p.gender === 'women').length,
-            men: products.filter((p) => p.gender === 'men').length,
-          },
-        }
-      },
+      all: () => catalogService.index(get().ownerProducts, get().deletedIds).list,
+      getById: (id) => catalogService.index(get().ownerProducts, get().deletedIds).get(id),
+      meta: () => catalogService.index(get().ownerProducts, get().deletedIds).meta(),
       upsertProduct: (product) => {
         const ownerProducts = [...get().ownerProducts]
         const i = ownerProducts.findIndex((p) => p.id === product.id)
@@ -155,41 +91,35 @@ export const useCatalog = create(
       },
       addOrder: (order) => set({ orders: [order, ...get().orders] }),
     }),
-    { name: 'pkf-catalog-v1', partialize: (s) => ({ ownerProducts: s.ownerProducts, deletedIds: s.deletedIds, orders: s.orders }) },
+    { name: 'pkf-catalog-v1', storage: createJSONStorage(() => safeStorage), partialize: (s) => ({ ownerProducts: s.ownerProducts, deletedIds: s.deletedIds, orders: s.orders }) },
   ),
 )
 
 export { BRANDS, CATEGORIES, COLORS, SEED_PRODUCTS }
 
 
-export function useProducts() {
+/** Shared, cached product index (rebuilt only when owner data changes). */
+export function useCatalogIndex() {
   const ownerProducts = useCatalog((s) => s.ownerProducts)
   const deletedIds = useCatalog((s) => s.deletedIds)
-  return useMemo(() => {
-    const map = new Map()
-    for (const p of SEED_PRODUCTS) {
-      if (!deletedIds.includes(p.id)) map.set(p.id, p)
-    }
-    for (const p of ownerProducts) map.set(p.id, p)
-    return [...map.values()]
-  }, [ownerProducts, deletedIds])
+  return catalogService.index(ownerProducts, deletedIds)
 }
 
-export function useProduct(id) {
-  const products = useProducts()
-  return useMemo(() => products.find((p) => p.id === id), [products, id])
+export function useProducts() {
+  return useCatalogIndex().list
+}
+
+/** O(1) lookup by id or slug. */
+export function useProduct(idOrSlug) {
+  return useCatalogIndex().get(idOrSlug)
 }
 
 export function useMeta() {
-  const products = useProducts()
-  return useMemo(() => ({
-    brands: [...new Set(products.map((p) => p.brand))].sort(),
-    categories: [...new Set(products.map((p) => p.category))].sort(),
-    colors: [...new Set(products.map((p) => p.color).filter(Boolean))].sort(),
-    counts: {
-      total: products.length,
-      women: products.filter((p) => p.gender === 'women').length,
-      men: products.filter((p) => p.gender === 'men').length,
-    },
-  }), [products])
+  return useCatalogIndex().meta()
+}
+
+/** Memoised filtered + sorted list. */
+export function useFilteredProducts(filters) {
+  const index = useCatalogIndex()
+  return useMemo(() => index.query(filters), [index, filters])
 }

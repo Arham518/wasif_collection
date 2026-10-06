@@ -1,12 +1,19 @@
-import { useRef, useState, useEffect } from 'react'
-import { mediaUrl } from '../lib/utils'
+import { useEffect, useRef, useState } from 'react'
+import { warmMedia } from '../lib/imageCache'
+import LazyImage from './LazyImage'
 
 /** Image-sequence 360 only — shown when product.images360 has frames */
 export default function Product360({ product }) {
   const wrap = useRef(null)
   const [pointerX, setPointerX] = useState(0.5)
   const frames = product?.images360?.length ? product.images360 : null
-  if (!frames?.length) return null
+
+  // Preload every frame once so dragging never shows blank frames.
+  useEffect(() => {
+    for (const f of frames || []) warmMedia(f)
+  }, [frames])
+
+  if (!frames) return null
   const idx = Math.min(frames.length - 1, Math.max(0, Math.floor(pointerX * frames.length)))
 
   function onMove(clientX) {
@@ -16,13 +23,6 @@ export default function Product360({ product }) {
     setPointerX(Math.min(1, Math.max(0, (clientX - r.left) / r.width)))
   }
 
-  useEffect(() => {
-    function up() {}
-    window.addEventListener('mouseup', up)
-    window.addEventListener('touchend', up)
-    return () => { window.removeEventListener('mouseup', up); window.removeEventListener('touchend', up) }
-  }, [])
-
   return (
     <div
       ref={wrap}
@@ -31,7 +31,7 @@ export default function Product360({ product }) {
       onTouchMove={(e) => onMove(e.touches[0].clientX)}
       onTouchStart={(e) => onMove(e.touches[0].clientX)}
     >
-      <img src={mediaUrl(frames[idx])} alt="360 view" className="w-full h-full object-cover" />
+      <LazyImage src={frames[idx]} alt="360 view" eager sizes="(min-width: 1024px) 50vw, 100vw" className="w-full h-full" imgClassName="transition-none" />
       <div className="absolute bottom-3 left-3 right-3 flex justify-between text-[10px] tracking-[0.14em] uppercase text-[var(--color-mute)] pointer-events-none">
         <span>360° · drag</span>
         <span>{idx + 1}/{frames.length}</span>

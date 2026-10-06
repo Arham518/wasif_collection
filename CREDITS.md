@@ -1,7 +1,7 @@
-# Credits — Wasif Collection
+# Credits — Rana Collection
 
 ## Store
-- Name: Wasif Collection
+- Name: Rana Collection
 - Address: Shahi Bazar
 - Phone / WhatsApp: 03103323518 (https://wa.me/923103323518)
 

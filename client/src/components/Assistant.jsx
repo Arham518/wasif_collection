@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
+import LazyImage from './LazyImage'
 import { MessageCircle, X, Send } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { formatPKR, mediaUrl } from '../lib/utils'
+import { formatPKR } from '../lib/utils'
 import { useCart } from '../store/cart'
 import { useProducts, runAssistant } from '../store/catalog'
 import { toast } from 'sonner'
@@ -10,14 +11,14 @@ export default function Assistant() {
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState([
-    { role: 'bot', text: 'Salam! Wasif Collection assistant hoon. Try: "women lawn under 5000 Khaadi" ya "men kurta navy".' },
+    { role: 'bot', text: 'Salam! Rana Collection assistant hoon. Try: "women lawn under 5000 Khaadi" ya "men kurta navy".' },
   ])
   const endRef = useRef(null)
   const add = useCart((s) => s.add)
   const products = useProducts()
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' })
+    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }, [messages, open])
 
   function send(e) {
@@ -39,12 +40,12 @@ export default function Assistant() {
         <div className="fixed bottom-5 right-5 z-50 w-[min(100vw-1.5rem,380px)] h-[min(70vh,560px)] bg-white border border-[var(--color-line)] shadow-2xl flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-line)] bg-[var(--color-paper)]">
             <div>
-              <div className="text-sm font-medium">Wasif Assistant</div>
+              <div className="text-sm font-medium">Rana Assistant</div>
               <div className="text-[10px] tracking-wider uppercase text-[var(--color-mute)]">Local · prices · filters</div>
             </div>
             <button onClick={() => setOpen(false)} aria-label="Close"><X size={18} /></button>
           </div>
-          <div className="flex-1 overflow-y-auto p-3 space-y-3">
+          <div className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-3" data-lenis-prevent>
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[90%] text-sm px-3 py-2 ${m.role === 'user' ? 'bg-[var(--color-ink)] text-white' : 'bg-[var(--color-paper-2)] border border-[var(--color-line)]'}`}>
@@ -53,7 +54,7 @@ export default function Assistant() {
                     <div className="mt-2 space-y-2">
                       {m.products.slice(0, 4).map((p) => (
                         <div key={p.id} className="flex gap-2 items-center bg-white border border-[var(--color-line)] p-1.5">
-                          <img src={mediaUrl(p.images?.[0])} alt="" className="w-12 h-14 object-cover" />
+                          <LazyImage src={p.images?.[0]} alt="" sizes="48px" className="w-12 h-14 shrink-0" />
                           <div className="flex-1 min-w-0">
                             <Link to={`/product/${p.id}`} className="text-xs font-medium line-clamp-1 hover:underline">{p.name}</Link>
                             <div className="text-[10px] text-[var(--color-mute)]">{p.brand} · {formatPKR(p.price)}</div>

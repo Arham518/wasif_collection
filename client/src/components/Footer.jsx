@@ -6,7 +6,7 @@ export default function Footer() {
     <footer className="mt-16 border-t border-[var(--color-line)] bg-[var(--color-ink)] text-[#e8e2d8]">
       <div className="container-x py-12 grid grid-cols-2 md:grid-cols-4 gap-8 text-sm">
         <div className="col-span-2 md:col-span-1">
-          <div className="font-display text-2xl text-white mb-3">Wasif Collection</div>
+          <div className="font-display text-2xl text-white mb-3">Rana Collection</div>
           <p className="text-[#b9b1a4] leading-relaxed text-[13px] mb-3">
             Pakistani lawn, pret and ethnic wear. Visit us at {STORE.address}.
           </p>
@@ -39,7 +39,7 @@ export default function Footer() {
         </div>
       </div>
       <div className="border-t border-white/10 text-[11px] tracking-wider uppercase text-center py-4 text-[#8f877a]">
-        © {new Date().getFullYear()} Wasif Collection · {STORE.address}
+        © {new Date().getFullYear()} Rana Collection · {STORE.address}
       </div>
     </footer>
   )

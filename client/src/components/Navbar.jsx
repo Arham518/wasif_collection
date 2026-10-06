@@ -1,10 +1,12 @@
-import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { Search, ShoppingBag, Heart, Menu, X, User, Phone } from 'lucide-react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Search, ShoppingBag, Heart, Menu, User, Phone, ChevronDown } from 'lucide-react'
 import { useState } from 'react'
 import { useCart } from '../store/cart'
 import { useWishlist } from '../store/wishlist'
 import { useUI } from '../store/ui'
 import { BRANDS, STORE } from '../data/catalog'
+import Drawer from './Drawer'
+import { prefetch } from '../routes'
 
 const links = [
   { to: '/women', label: 'Women' },
@@ -15,14 +17,35 @@ const links = [
   { to: '/collection?featured=true', label: 'New' },
 ]
 
+// NavLink ignores the query string, so every /collection?… link looked "active" at once.
+// Compare pathname AND the link's own query params instead.
+function isActive(to, location) {
+  const url = new URL(to, 'http://x')
+  if (url.pathname !== location.pathname) return false
+  const current = new URLSearchParams(location.search)
+  for (const [k, v] of url.searchParams) if (current.get(k) !== v) return false
+  return true
+}
+
 export default function Navbar() {
   const [open, setOpen] = useState(false)
   const [brandsOpen, setBrandsOpen] = useState(false)
+  const [mobileBrands, setMobileBrands] = useState(false)
   const [q, setQ] = useState('')
   const navigate = useNavigate()
-  const count = useCart((s) => s.count())
+  const location = useLocation()
+  const count = useCart((s) => s.items.reduce((n, x) => n + x.qty, 0))
   const wish = useWishlist((s) => s.ids.length)
   const openCart = useUI((s) => s.openCart)
+
+  // Close menus whenever the route changes (back/forward, search, any link).
+  const routeKey = location.pathname + location.search
+  const [lastRoute, setLastRoute] = useState(routeKey)
+  if (routeKey !== lastRoute) {
+    setLastRoute(routeKey)
+    setOpen(false)
+    setBrandsOpen(false)
+  }
 
   function onSearch(e) {
     e.preventDefault()
@@ -30,6 +53,9 @@ export default function Navbar() {
     navigate(`/collection?q=${encodeURIComponent(q.trim())}`)
     setOpen(false)
   }
+
+  const linkClass = (to) => (isActive(to, location) ? 'text-[var(--color-accent)]' : 'text-[var(--color-ink-soft)] hover:text-[var(--color-ink)]')
+  const warm = () => prefetch('collection')
 
   return (
     <header className="sticky top-0 z-50 bg-[var(--color-paper)]/95 backdrop-blur border-b border-[var(--color-line)]">
@@ -42,25 +68,29 @@ export default function Navbar() {
         </a>
       </div>
       <div className="container-x flex items-center gap-4 h-14 md:h-16">
-        <button className="lg:hidden p-1" onClick={() => setOpen(true)} aria-label="Menu"><Menu size={20} /></button>
-        <Link to="/" className="font-display text-xl md:text-2xl tracking-tight shrink-0">Wasif Collection</Link>
+        <button type="button" className="lg:hidden p-1" onClick={() => setOpen(true)} aria-label="Menu" aria-expanded={open} aria-controls="mobile-menu"><Menu size={20} /></button>
+        <Link to="/" className="font-display text-xl md:text-2xl tracking-tight shrink-0">Rana Collection</Link>
         <nav className="hidden lg:flex items-center gap-6 ml-6 text-[12px] tracking-[0.12em] uppercase relative">
           {links.map((l) => (
-            <NavLink key={l.to} to={l.to} className={({ isActive }) => (isActive ? 'text-[var(--color-accent)]' : 'text-[var(--color-ink-soft)] hover:text-[var(--color-ink)]')}>{l.label}</NavLink>
+            <Link key={l.to} to={l.to} onMouseEnter={warm} className={linkClass(l.to)}>{l.label}</Link>
           ))}
           <div className="relative" onMouseEnter={() => setBrandsOpen(true)} onMouseLeave={() => setBrandsOpen(false)}>
-            <button className="text-[var(--color-ink-soft)] hover:text-[var(--color-ink)]">Brands</button>
+            <button type="button" onClick={() => setBrandsOpen((v) => !v)} aria-expanded={brandsOpen} className="text-[var(--color-ink-soft)] hover:text-[var(--color-ink)] inline-flex items-center gap-1">
+              Brands <ChevronDown size={12} />
+            </button>
             {brandsOpen && (
-              <div className="absolute top-full left-0 mt-2 bg-white border border-[var(--color-line)] min-w-[200px] py-2 shadow-lg">
-                {BRANDS.map((b) => (
-                  <Link key={b} to={`/brand/${encodeURIComponent(b)}`} className="block px-4 py-2 text-[11px] tracking-wider normal-case hover:bg-[var(--color-paper-2)]">{b}</Link>
-                ))}
+              <div className="absolute top-full left-0 pt-2 z-10">
+                <div className="bg-white border border-[var(--color-line)] min-w-[200px] py-2 shadow-lg">
+                  {BRANDS.map((b) => (
+                    <Link key={b} to={`/brand/${encodeURIComponent(b)}`} className="block px-4 py-2 text-[11px] tracking-wider normal-case hover:bg-[var(--color-paper-2)]">{b}</Link>
+                  ))}
+                </div>
               </div>
             )}
           </div>
         </nav>
         <form onSubmit={onSearch} className="ml-auto hidden md:flex items-center border border-[var(--color-line)] bg-white max-w-xs w-full">
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search lawn, kurta, brand…" className="flex-1 px-3 py-2 text-sm outline-none" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} onFocus={warm} placeholder="Search lawn, kurta, brand…" className="flex-1 px-3 py-2 text-sm outline-none" />
           <button type="submit" className="px-3 text-[var(--color-mute)]" aria-label="Search"><Search size={16} /></button>
         </form>
         <div className="flex items-center gap-3 ml-auto md:ml-3">
@@ -75,23 +105,35 @@ export default function Navbar() {
           <Link to="/admin" className="p-1 hidden sm:block" aria-label="Admin"><User size={18} /></Link>
         </div>
       </div>
-      {open && (
-        <div className="fixed inset-0 z-[60] lg:hidden">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
-          <aside className="absolute left-0 top-0 bottom-0 w-[80%] max-w-xs bg-[var(--color-paper)] p-5 flex flex-col gap-3 border-r border-[var(--color-line)] overflow-y-auto">
-            <div className="flex justify-between items-center mb-2">
-              <span className="font-display text-xl">Menu</span>
-              <button onClick={() => setOpen(false)} aria-label="Close"><X size={20} /></button>
+
+      {/* Mobile menu: rendered through a portal so the blurred sticky header can't clip it. */}
+      <Drawer open={open} onClose={() => setOpen(false)} side="left" title="Menu" id="mobile-menu" closeAbove={1024} widthClass="w-[80%] max-w-xs">
+        <form onSubmit={onSearch} className="md:hidden flex items-center border border-[var(--color-line)] bg-white mb-4">
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search lawn, kurta, brand…" className="flex-1 min-w-0 px-3 py-2 text-sm outline-none" />
+          <button type="submit" className="px-3 text-[var(--color-mute)]" aria-label="Search"><Search size={16} /></button>
+        </form>
+        <nav className="flex flex-col">
+          {links.map((l) => (
+            <Link key={l.to} to={l.to} onClick={() => setOpen(false)} className={`text-sm tracking-widest uppercase py-3 border-b border-[var(--color-line)] ${isActive(l.to, location) ? 'text-[var(--color-accent)]' : ''}`}>{l.label}</Link>
+          ))}
+          <button type="button" onClick={() => setMobileBrands((v) => !v)} aria-expanded={mobileBrands} className="flex items-center justify-between text-sm tracking-widest uppercase py-3 border-b border-[var(--color-line)] text-left">
+            Brands <ChevronDown size={16} className={`transition-transform ${mobileBrands ? 'rotate-180' : ''}`} />
+          </button>
+          {mobileBrands && (
+            <div className="flex flex-col py-1 border-b border-[var(--color-line)]">
+              {BRANDS.map((b) => (
+                <Link key={b} to={`/brand/${encodeURIComponent(b)}`} onClick={() => setOpen(false)} className="text-sm py-2 pl-3 text-[var(--color-ink-soft)]">{b}</Link>
+              ))}
             </div>
-            <a href={STORE.whatsapp} target="_blank" rel="noreferrer" className="text-sm py-2 border-b border-[var(--color-line)]">{STORE.phoneDisplay} · WhatsApp</a>
-            <p className="text-xs text-[var(--color-mute)]">{STORE.address}</p>
-            {links.map((l) => (
-              <Link key={l.to} to={l.to} onClick={() => setOpen(false)} className="text-sm tracking-widest uppercase py-2 border-b border-[var(--color-line)]">{l.label}</Link>
-            ))}
-            <Link to="/admin" onClick={() => setOpen(false)} className="text-sm tracking-widest uppercase py-2 mt-2">Admin</Link>
-          </aside>
+          )}
+          <Link to="/wishlist" onClick={() => setOpen(false)} className="text-sm tracking-widest uppercase py-3 border-b border-[var(--color-line)]">Wishlist{wish > 0 ? ` (${wish})` : ''}</Link>
+          <Link to="/admin" onClick={() => setOpen(false)} className="text-sm tracking-widest uppercase py-3">Admin</Link>
+        </nav>
+        <div className="mt-6 pt-4 border-t border-[var(--color-line)] space-y-1">
+          <a href={STORE.whatsapp} target="_blank" rel="noreferrer" className="block text-sm py-1">{STORE.phoneDisplay} · WhatsApp</a>
+          <p className="text-xs text-[var(--color-mute)]">{STORE.address}</p>
         </div>
-      )}
+      </Drawer>
     </header>
   )
 }

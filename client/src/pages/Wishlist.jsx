@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useWishlist } from '../store/wishlist'
 import { useProducts } from '../store/catalog'
@@ -6,7 +7,7 @@ import ProductCard from '../components/ProductCard'
 export default function Wishlist() {
   const ids = useWishlist((s) => s.ids)
   const all = useProducts()
-  const products = all.filter((p) => ids.includes(p.id))
+  const products = useMemo(() => { const set = new Set(ids); return all.filter((p) => set.has(p.id)) }, [all, ids])
 
   return (
     <div className="container-x py-8">

@@ -1,6 +1,6 @@
 export const ADMIN_PASSWORD = 'arham123'
 export const STORE = {
-  name: 'Wasif Collection',
+  name: 'Rana Collection',
   address: 'Shahi Bazar',
   phone: '03103323518',
   phoneDisplay: '0310 3323518',
@@ -13,8 +13,8 @@ export const PK_CITIES = [
   'Sargodha','Mardan','Abbottabad','Gwadar',
 ]
 
-const W = (a, b) => [`/products/${a}.jpg`, `/products/${b}.jpg`]
-const M = (a, b) => [`/products/${a}.jpg`, `/products/${b}.jpg`]
+const W = (a, b) => [`/products/${a}.webp`, `/products/${b}.webp`]
+const M = (a, b) => [`/products/${a}.webp`, `/products/${b}.webp`]
 
 export const SEED_PRODUCTS = [
   // Women — verified salwar/lawn/kurti photos

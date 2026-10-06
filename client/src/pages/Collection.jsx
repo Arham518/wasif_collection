@@ -1,14 +1,18 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import ProductCard from '../components/ProductCard'
 import FilterSidebar from '../components/FilterSidebar'
-import { SlidersHorizontal, X } from 'lucide-react'
-import { useProducts, useMeta, filterProducts } from '../store/catalog'
+import Drawer from '../components/Drawer'
+import { SlidersHorizontal } from 'lucide-react'
+import { useMeta, useFilteredProducts } from '../store/catalog'
+import { scrollToTop } from '../lib/scroll'
+
+const LIMIT = 24
+const COUNTED = ['brand', 'category', 'color', 'q', 'minPrice', 'maxPrice', 'sort', 'featured']
 
 export default function Collection({ gender: genderProp, brand: brandProp }) {
   const [params, setParams] = useSearchParams()
   const [drawer, setDrawer] = useState(false)
-  const all = useProducts()
   const meta = useMeta()
 
   const filters = useMemo(() => ({
@@ -21,25 +25,41 @@ export default function Collection({ gender: genderProp, brand: brandProp }) {
     maxPrice: params.get('maxPrice') || '',
     sort: params.get('sort') || '',
     featured: params.get('featured') || '',
-    page: Number(params.get('page') || 1),
+    page: Math.max(1, Number(params.get('page')) || 1),
   }), [params, genderProp, brandProp])
 
-  function setFilters(updater) {
-    const next = typeof updater === 'function' ? updater(filters) : updater
-    const sp = new URLSearchParams()
-    Object.entries(next).forEach(([k, v]) => {
-      if (v != null && v !== '' && k !== 'gender' && k !== 'brand') sp.set(k, String(v))
-    })
-    if (!genderProp && next.gender) sp.set('gender', next.gender)
-    if (!brandProp && next.brand) sp.set('brand', next.brand)
-    setParams(sp)
-  }
+  // Stable callback so the memoised sidebar doesn't re-render on every parent render.
+  const setFilters = useCallback((updater) => {
+    setParams((prev) => {
+      const current = {
+        gender: genderProp || prev.get('gender') || '',
+        brand: brandProp || prev.get('brand') || '',
+        page: Number(prev.get('page')) || 1,
+      }
+      for (const k of COUNTED) current[k] = prev.get(k) || ''
+      const next = typeof updater === 'function' ? updater(current) : updater
+      const sp = new URLSearchParams()
+      Object.entries(next).forEach(([k, v]) => {
+        if (v == null || v === '' || k === 'gender' || k === 'brand') return
+        if (k === 'page' && Number(v) <= 1) return
+        sp.set(k, String(v))
+      })
+      if (!genderProp && next.gender) sp.set('gender', next.gender)
+      if (!brandProp && next.brand) sp.set('brand', next.brand)
+      return sp
+    }, { replace: true, preventScrollReset: true })
+  }, [setParams, genderProp, brandProp])
 
-  const filtered = filterProducts(all, filters)
-  const page = filters.page || 1
-  const limit = 24
-  const pageItems = filtered.slice((page - 1) * limit, page * limit)
+  const filtered = useFilteredProducts(filters)
+  const page = filters.page
+  const pageItems = useMemo(() => filtered.slice((page - 1) * LIMIT, page * LIMIT), [filtered, page])
+  const activeCount = COUNTED.filter((k) => !(brandProp && k === 'brand') && filters[k]).length
   const title = brandProp || (genderProp === 'women' ? 'Women' : genderProp === 'men' ? 'Men' : filters.q ? `Search: ${filters.q}` : 'Collection')
+
+  function goPage(p) {
+    setFilters((f) => ({ ...f, page: p }))
+    scrollToTop()
+  }
 
   return (
     <div className="container-x py-8">
@@ -49,42 +69,41 @@ export default function Collection({ gender: genderProp, brand: brandProp }) {
           <h1 className="font-display text-3xl md:text-4xl">{title}</h1>
           <p className="text-sm text-[var(--color-mute)] mt-1">{filtered.length} pieces · sample prices</p>
         </div>
-        <button className="lg:hidden btn btn-outline" onClick={() => setDrawer(true)}>
-          <SlidersHorizontal size={14} /> Filters
+        <button type="button" className="lg:hidden btn btn-outline" onClick={() => setDrawer(true)} aria-expanded={drawer} aria-controls="filters-drawer">
+          <SlidersHorizontal size={14} /> Filters{activeCount > 0 ? ` (${activeCount})` : ''}
         </button>
       </div>
       <div className="grid lg:grid-cols-[240px_1fr] gap-8">
-        <FilterSidebar meta={meta} filters={filters} setFilters={setFilters} className="hidden lg:block sticky top-24 self-start" />
+        <FilterSidebar meta={meta} filters={filters} setFilters={setFilters} hideBrand={!!brandProp} className="hidden lg:block sticky top-28 self-start" />
         <div>
           {!pageItems.length ? (
             <div className="border border-[var(--color-line)] bg-white p-12 text-center text-[var(--color-mute)]">No products match these filters.</div>
           ) : (
             <div className="product-grid">
-              {pageItems.map((p) => <ProductCard key={p.id} product={p} />)}
+              {pageItems.map((p, i) => <ProductCard key={p.id} product={p} eager={i < 4} />)}
             </div>
           )}
-          {filtered.length > limit && (
+          {filtered.length > LIMIT && (
             <div className="flex justify-center gap-2 mt-8">
-              <button className="btn btn-outline" disabled={page <= 1} onClick={() => setFilters((f) => ({ ...f, page: f.page - 1 }))}>Prev</button>
+              <button type="button" className="btn btn-outline" disabled={page <= 1} onClick={() => goPage(page - 1)}>Prev</button>
               <span className="px-3 py-2 text-sm">Page {page}</span>
-              <button className="btn btn-outline" disabled={page * limit >= filtered.length} onClick={() => setFilters((f) => ({ ...f, page: f.page + 1 }))}>Next</button>
+              <button type="button" className="btn btn-outline" disabled={page * LIMIT >= filtered.length} onClick={() => goPage(page + 1)}>Next</button>
             </div>
           )}
         </div>
       </div>
-      {drawer && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setDrawer(false)} />
-          <div className="absolute right-0 top-0 bottom-0 w-[85%] max-w-sm bg-[var(--color-paper)] p-5 overflow-y-auto border-l border-[var(--color-line)]">
-            <div className="flex justify-between mb-4">
-              <span className="font-display text-xl">Filters</span>
-              <button onClick={() => setDrawer(false)}><X size={18} /></button>
-            </div>
-            <FilterSidebar meta={meta} filters={filters} setFilters={setFilters} />
-            <button className="btn w-full mt-6" onClick={() => setDrawer(false)}>Show results</button>
-          </div>
-        </div>
-      )}
+      <Drawer
+        open={drawer}
+        onClose={() => setDrawer(false)}
+        side="right"
+        title="Filters"
+        id="filters-drawer"
+        closeAbove={1024}
+        widthClass="w-[85%] max-w-sm"
+        footer={<button type="button" className="btn w-full" onClick={() => setDrawer(false)}>Show {filtered.length} results</button>}
+      >
+        <FilterSidebar meta={meta} filters={filters} setFilters={setFilters} hideBrand={!!brandProp} />
+      </Drawer>
     </div>
   )
 }

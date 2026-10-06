@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
+import LazyImage from '../components/LazyImage'
 import { useCart } from '../store/cart'
-import { formatPKR, mediaUrl } from '../lib/utils'
+import { formatPKR } from '../lib/utils'
 import { Minus, Plus, Trash2 } from 'lucide-react'
 
 export default function Cart() {
@@ -24,7 +25,7 @@ export default function Cart() {
         <div className="border border-[var(--color-line)] bg-white divide-y divide-[var(--color-line)]">
           {items.map((it) => (
             <div key={`${it.productId}-${it.size}`} className="flex gap-4 p-4">
-              <img src={mediaUrl(it.image)} alt="" className="w-20 h-28 object-cover border border-[var(--color-line)]" />
+              <LazyImage src={it.image} alt="" sizes="80px" className="w-20 h-28 shrink-0 border border-[var(--color-line)]" />
               <div className="flex-1 min-w-0">
                 <div className="text-[10px] uppercase tracking-wider text-[var(--color-mute)]">{it.brand}</div>
                 <Link to={`/product/${it.productId}`} className="text-sm font-medium hover:underline">{it.name}</Link>

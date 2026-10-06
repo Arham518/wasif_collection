@@ -1,0 +1,12 @@
+# Netlify response headers (copied to dist/ at build time)
+
+# Hashed JS/CSS/font bundles: the file name changes on every build, so cache forever.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Product photos. If you replace a photo, give it a new file name so browsers fetch it again.
+/products/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/models/*
+  Cache-Control: public, max-age=604800

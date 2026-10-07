@@ -34,6 +34,12 @@ body {
 /* Component classes live in a layer so Tailwind utilities (lg:hidden, px-3, w-full…)
    can still override them. Unlayered CSS always beats @layer utilities in Tailwind 4,
    which is why e.g. `btn lg:hidden` used to stay visible on desktop. */
+/* Pointer cursor on everything clickable (Tailwind 4 preflight uses the default cursor on buttons). */
+@layer base {
+  button:not(:disabled), [role="button"], a[href], summary, select, label:has(input, select, textarea),
+  input[type="checkbox"], input[type="radio"], input[type="file"], input[type="submit"] { cursor: pointer; }
+  button:disabled { cursor: not-allowed; }
+}
 @layer components {
   .container-x {
     width: 100%;

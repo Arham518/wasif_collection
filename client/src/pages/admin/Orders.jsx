@@ -6,6 +6,9 @@ import { errorMessage } from '../../lib/supabase'
 import { useAsync } from '../../hooks/useAsync'
 import { adminFetchOrders, adminUpdateOrderStatus } from '../../services/adminService'
 import { ORDER_STATUSES, STATUS_LABEL } from '../../services/orderService'
+import Pagination, { usePageParam } from '../../components/Pagination'
+
+const PER_PAGE = 20
 
 export default function Orders() {
   const { data, loading, setData } = useAsync(adminFetchOrders, [], { errorText: 'Could not load orders' })
@@ -18,6 +21,10 @@ export default function Orders() {
     return (data || []).filter((o) => (!filter || o.status === filter)
       && (!words || `${o.orderNumber} ${o.customer?.name} ${o.customer?.phone} ${o.customer?.email} ${o.customer?.city}`.toLowerCase().includes(words)))
   }, [data, filter, q])
+
+  const [pageParam, setPage] = usePageParam()
+  const page = Math.min(pageParam, Math.max(1, Math.ceil(orders.length / PER_PAGE)))
+  const pageOrders = orders.slice((page - 1) * PER_PAGE, page * PER_PAGE)
 
   async function changeStatus(order, status) {
     setSaving(order.id)
@@ -49,14 +56,14 @@ export default function Orders() {
         <div className="border border-[var(--color-line)] bg-white p-8 text-center text-[var(--color-mute)]">No orders yet</div>
       ) : (
         <div className="space-y-3">
-          {orders.map((o) => (
+          {pageOrders.map((o) => (
             <OrderCard key={o.id} order={o}>
               <div className="mt-3 pt-3 border-t border-[var(--color-line)] flex flex-wrap gap-3 items-end justify-between">
                 <div className="text-xs text-[var(--color-mute)] space-y-0.5">
                   <div className="text-[var(--color-ink)]">{o.customer?.name} &middot; {o.customer?.phone}{o.customer?.email ? ` \u00b7 ${o.customer.email}` : ''}</div>
                   <div>{o.customer?.address}, {o.customer?.city}</div>
                   {o.customer?.notes && <div>Note: {o.customer.notes}</div>}
-                  <div>Payment: {o.paymentMethod} ({o.paymentStatus}) &middot; Subtotal {o.subtotal} + shipping {o.shippingFee}</div>
+                  <div>{o.source === 'whatsapp' ? 'WhatsApp order \u00b7 ' : ''}Payment: {o.paymentMethod} ({o.paymentStatus}) &middot; Subtotal {o.subtotal} + shipping {o.shippingFee}</div>
                 </div>
                 <label className="text-xs flex items-center gap-2">
                   Status
@@ -69,6 +76,7 @@ export default function Orders() {
           ))}
         </div>
       )}
+      <Pagination page={page} total={orders.length} perPage={PER_PAGE} onChange={setPage} />
     </div>
   )
 }

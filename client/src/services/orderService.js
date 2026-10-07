@@ -26,6 +26,7 @@ export function orderFromRow(r) {
     shippingFee: Number(r.shipping_fee) || 0,
     total: Number(r.total) || 0,
     createdAt: r.created_at,
+    source: r.source || 'website',
   }
 }
 

@@ -14,7 +14,7 @@ export function filterProducts(list, f = {}) {
 
 export function runAssistant(message, products) {
   const lower = String(message || '').toLowerCase().trim()
-  if (!lower) return { reply: 'Kuch poochhein \u2014 e.g. women lawn under 5000 Khaadi', products: [], filters: {} }
+  if (!lower) return { reply: 'Ask me something, e.g. women lawn under 5000 Khaadi', products: [], filters: {} }
   const f = {}
   if (/\bwom[ae]n|ladies|girl|aurat|khawateen\b/.test(lower)) f.gender = 'women'
   if (/\bmen|gents|mard|boys?\b/.test(lower)) f.gender = 'men'
@@ -45,11 +45,11 @@ export function runAssistant(message, products) {
     matched = filterProducts(products, { q: cleaned }).slice(0, 6)
   }
   if (!matched.length) {
-    return { reply: 'Koi matching product nahi mila. Brand, gender, category ya max price try karein.', products: [], filters: f }
+    return { reply: 'No matching products found. Try a brand, gender, category or max price.', products: [], filters: f }
   }
   const names = matched.slice(0, 3).map((p) => `${p.name} (${p.brand}) \u2014 Rs ${p.price.toLocaleString()}`).join('; ')
   return {
-    reply: `Maine ${matched.length} items dhundhe. Top: ${names}. Sample prices hain (typical market range).`,
+    reply: `Found ${matched.length} items. Top: ${names}.`,
     products: matched,
     filters: f,
   }

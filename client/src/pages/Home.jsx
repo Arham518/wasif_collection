@@ -17,7 +17,7 @@ export default function Home() {
   const index = useCatalogIndex()
   const loading = useCatalogLoading()
   const { featured, women, men } = useMemo(() => ({
-    featured: index.query({ featured: true }).slice(0, 8),
+    featured: index.query({ sort: 'newest' }).slice(0, 8),
     women: index.query({ gender: 'women', sort: 'rating' }).slice(0, 8),
     men: index.query({ gender: 'men', sort: 'rating' }).slice(0, 8),
   }), [index])
@@ -61,7 +61,7 @@ export default function Home() {
       </section>
 
       {loading && <section className="container-x py-10"><div className="h-8 w-48 img-skeleton mb-5" /><ProductGridSkeleton count={4} /></section>}
-      <Section title="New arrivals" to="/collection?featured=true" products={featured} />
+      <Section title="New arrivals" to="/collection?sort=newest" products={featured} />
       <Section title="Women" to="/women" products={women} />
       <Section title="Men" to="/men" products={men} />
 

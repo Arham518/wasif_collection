@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { ListSkeleton } from '../../components/Skeleton'
 import { toast } from 'sonner'
-import { LogOut, Package, ShoppingBag, Plus, BarChart3, Tags, Users } from 'lucide-react'
+import { LogOut, Package, ShoppingBag, Plus, BarChart3, Tags, Users, Settings as SettingsIcon } from 'lucide-react'
 import { useAuth } from '../../store/auth'
 
 const NAV = [
@@ -12,6 +12,7 @@ const NAV = [
   { to: '/admin/dashboard/categories', label: 'Categories', icon: Tags },
   { to: '/admin/dashboard/orders', label: 'Orders', icon: ShoppingBag },
   { to: '/admin/dashboard/customers', label: 'Customers', icon: Users },
+  { to: '/admin/dashboard/settings', label: 'Settings', icon: SettingsIcon },
 ]
 
 export default function AdminLayout() {

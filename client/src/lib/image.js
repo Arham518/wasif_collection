@@ -1,4 +1,7 @@
-/** Downscale + re-encode an uploaded photo so it stays light (max 1200px, WebP). */
+/**
+ * Standardise an uploaded photo: max 1200px on the long side, re-encoded as WebP
+ * (JPEG when the browser can't encode WebP). Display uses 3:4 object-cover boxes.
+ */
 export async function compressImage(file, { maxSize = 1200, quality = 0.82 } = {}) {
   try {
     const bitmap = await createImageBitmap(file)
@@ -10,8 +13,10 @@ export async function compressImage(file, { maxSize = 1200, quality = 0.82 } = {
     canvas.height = h
     canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h)
     bitmap.close?.()
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', quality))
-    return blob && blob.size < file.size ? blob : file
+    const encode = (type) => new Promise((resolve) => canvas.toBlob(resolve, type, quality))
+    let blob = await encode('image/webp')
+    if (!blob || blob.type !== 'image/webp') blob = await encode('image/jpeg')
+    return blob || file
   } catch {
     return file
   }

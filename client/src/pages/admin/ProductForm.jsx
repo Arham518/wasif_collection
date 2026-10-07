@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Trash2, X } from 'lucide-react'
-import LazyImage from '../../components/LazyImage'
+import { Trash2 } from 'lucide-react'
+import ImageDropzone from '../../components/ImageDropzone'
 import { ListSkeleton } from '../../components/Skeleton'
 import { errorMessage } from '../../lib/supabase'
-import { normalizeImage } from '../../services/catalogService'
 import {
   adminFetchProduct, adminFetchProducts, adminFetchCategories, adminCreateProduct, adminUpdateProduct,
   nextProductCode, uploadProductImages, removeStorageImages, storagePathFromUrl,
@@ -211,37 +210,8 @@ function ProductFormView({ code }) {
       </div>
       <textarea className="input md:col-span-2 min-h-[80px]" placeholder="Description" value={form.description} onChange={set('description')} />
 
-      <div className="md:col-span-2 text-sm">
-        <label className="block mb-1">Product photos {images.length > 0 && <span className="text-[var(--color-mute)]">(first = main photo)</span>}</label>
-        {images.length > 0 && (
-          <div className="flex gap-2 flex-wrap mb-2">
-            {images.map((url, i) => (
-              <div key={url} className="relative">
-                <button type="button" onClick={() => makeMain(url)} title="Make main photo" className={`block w-16 h-20 border ${i === 0 ? 'border-[var(--color-ink)]' : 'border-[var(--color-line)]'}`}>
-                  <LazyImage src={normalizeImage(url)} alt="" responsive={false} className="w-full h-full" />
-                </button>
-                <button type="button" onClick={() => dropImage(url)} aria-label="Remove photo" className="absolute -top-2 -right-2 w-5 h-5 bg-white border border-[var(--color-line)] grid place-items-center"><X size={10} /></button>
-              </div>
-            ))}
-          </div>
-        )}
-        <input type="file" accept="image/*" multiple onChange={(e) => setFiles([...e.target.files])} />
-        {files.length > 0 && <p className="text-xs text-[var(--color-mute)] mt-1">{files.length} new photo(s) will upload to Supabase Storage on save.</p>}
-      </div>
-      <div className="md:col-span-2 text-sm">
-        <label className="block mb-1">360&deg; angle photos (optional)</label>
-        {images360.length > 0 && (
-          <div className="flex gap-2 flex-wrap mb-2">
-            {images360.map((url) => (
-              <div key={url} className="relative">
-                <LazyImage src={normalizeImage(url)} alt="" responsive={false} className="w-12 h-16 border border-[var(--color-line)]" />
-                <button type="button" onClick={() => dropImage(url, '360')} aria-label="Remove photo" className="absolute -top-2 -right-2 w-5 h-5 bg-white border border-[var(--color-line)] grid place-items-center"><X size={10} /></button>
-              </div>
-            ))}
-          </div>
-        )}
-        <input type="file" accept="image/*" multiple onChange={(e) => setFiles360([...e.target.files])} />
-      </div>
+      <ImageDropzone label="Product photos (first = main photo, click one to make it main)" urls={images} files={files} onFiles={setFiles} onRemoveUrl={(url) => dropImage(url)} onMakeMain={makeMain} hint="JPG, PNG or WebP" />
+      <ImageDropzone label={'360\u00b0 angle photos (optional)'} urls={images360} files={files360} onFiles={setFiles360} onRemoveUrl={(url) => dropImage(url, '360')} />
       <button className="btn md:col-span-2" type="submit" disabled={busy}>{busy ? 'Saving\u2026' : editing ? 'Update product' : 'Publish product'}</button>
       {editing && (
         <button type="button" className="btn btn-outline md:col-span-2" onClick={remove} disabled={busy}><Trash2 size={14} /> Delete product</button>

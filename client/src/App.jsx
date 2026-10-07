@@ -14,9 +14,12 @@ import { Pages, prefetch } from './routes'
 import { setLenis, scrollToTop } from './lib/scroll'
 import { useAuth } from './store/auth'
 import { useCatalog } from './store/catalog'
+import { useSettings } from './store/settings'
+import { useCart } from './store/cart'
+import { catalogService } from './services/catalogService'
 
 const {
-  Collection, Brand, Product, Cart, Checkout, Wishlist, Login, Account, NotFound,
+  Collection, Brand, Product, Cart, Checkout, Wishlist, Login, Account, NotFound, ForgotPassword, ResetPassword, AdminSettings,
   AdminLogin, AdminLayout, AdminStatistics, AdminProducts, AdminProductForm, AdminCategories, AdminOrders, AdminCustomers,
 } = Pages
 
@@ -42,6 +45,13 @@ export default function App() {
   useEffect(() => {
     useAuth.getState().init()
     useCatalog.getState().load()
+    useSettings.getState().load()
+    // Keep cart prices/names in step with the live catalogue (drops products that were deleted).
+    return useCatalog.subscribe((s, prev) => {
+      if (s.products === prev.products || s.source !== 'supabase') return
+      const index = catalogService.index(s.products)
+      useCart.getState().reconcile((id) => index.get(id))
+    })
   }, [])
 
   useEffect(() => {
@@ -85,6 +95,8 @@ export default function App() {
               <Route path="/wishlist" element={<Wishlist />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Login mode="register" />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/account" element={<RequireAuth><Account /></RequireAuth>} />
               <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
               <Route path="/admin/login" element={<AdminLogin />} />
@@ -97,6 +109,7 @@ export default function App() {
                 <Route path="categories" element={<AdminCategories />} />
                 <Route path="orders" element={<AdminOrders />} />
                 <Route path="customers" element={<AdminCustomers />} />
+                <Route path="settings" element={<AdminSettings />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

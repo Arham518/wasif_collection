@@ -7,8 +7,9 @@ import { SlidersHorizontal } from 'lucide-react'
 import { useMeta, useFilteredProducts, useCatalogLoading } from '../store/catalog'
 import { ProductGridSkeleton } from '../components/Skeleton'
 import { scrollToTop } from '../lib/scroll'
+import Pagination from '../components/Pagination'
 
-const LIMIT = 24
+const LIMIT = 12
 const COUNTED = ['brand', 'category', 'color', 'q', 'minPrice', 'maxPrice', 'sort', 'featured']
 
 export default function Collection({ gender: genderProp, brand: brandProp }) {
@@ -53,10 +54,10 @@ export default function Collection({ gender: genderProp, brand: brandProp }) {
   }, [setParams, genderProp, brandProp])
 
   const filtered = useFilteredProducts(filters)
-  const page = filters.page
+  const page = Math.min(filters.page, Math.max(1, Math.ceil(filtered.length / LIMIT)))
   const pageItems = useMemo(() => filtered.slice((page - 1) * LIMIT, page * LIMIT), [filtered, page])
   const activeCount = COUNTED.filter((k) => !(brandProp && k === 'brand') && filters[k]).length
-  const title = brandProp || (genderProp === 'women' ? 'Women' : genderProp === 'men' ? 'Men' : filters.q ? `Search: ${filters.q}` : 'Collection')
+  const title = brandProp || (genderProp === 'women' ? 'Women' : genderProp === 'men' ? 'Men' : filters.q ? `Search: ${filters.q}` : filters.sort === 'newest' ? 'New arrivals' : 'Collection')
 
   function goPage(p) {
     setFilters((f) => ({ ...f, page: p }))
@@ -87,13 +88,7 @@ export default function Collection({ gender: genderProp, brand: brandProp }) {
               {pageItems.map((p, i) => <ProductCard key={p.id} product={p} eager={i < 4} />)}
             </div>
           )}
-          {filtered.length > LIMIT && (
-            <div className="flex justify-center gap-2 mt-8">
-              <button type="button" className="btn btn-outline" disabled={page <= 1} onClick={() => goPage(page - 1)}>Prev</button>
-              <span className="px-3 py-2 text-sm">Page {page}</span>
-              <button type="button" className="btn btn-outline" disabled={page * LIMIT >= filtered.length} onClick={() => goPage(page + 1)}>Next</button>
-            </div>
-          )}
+          <Pagination page={page} total={filtered.length} perPage={LIMIT} onChange={goPage} />
         </div>
       </div>
       <Drawer

@@ -1,6 +1,14 @@
 import { create } from 'zustand'
 import { toast } from 'sonner'
 import { supabase, requireSupabase, errorMessage } from '../lib/supabase'
+import { useCart } from './cart'
+import { useWishlist } from './wishlist'
+
+// Cart and wishlist are stored per user; switch them whenever the signed-in user changes.
+function syncOwner(userId) {
+  useCart.getState().setOwner(userId)
+  useWishlist.getState().setOwner(userId)
+}
 
 // Supabase Auth session + the user's row in public.profiles (role: customer | admin).
 // Supabase itself persists the session; this store only mirrors it for React.
@@ -33,9 +41,11 @@ export const useAuth = create((set, get) => ({
     const user = session?.user ?? null
     const prev = get()
     if (!user) {
+      syncOwner(null)
       set({ session: null, user: null, profile: null, profileLoading: false, profileError: null })
       return Promise.resolve(null)
     }
+    syncOwner(user.id)
     const needsProfile = prev.user?.id !== user.id || !prev.profile
     set({ session, user, profileLoading: needsProfile ? true : prev.profileLoading, profile: prev.user?.id === user.id ? prev.profile : null })
     return needsProfile ? get().loadProfile() : Promise.resolve(prev.profile)
@@ -103,7 +113,8 @@ export const useAuth = create((set, get) => ({
 
   signOut: async () => {
     try { await supabase?.auth.signOut() } catch { /* ignore */ }
-    set({ session: null, user: null, profile: null, profileLoading: false, profileError: null })
+    syncOwner(null)
+      set({ session: null, user: null, profile: null, profileLoading: false, profileError: null })
   },
 
   updateProfile: async (patch) => {

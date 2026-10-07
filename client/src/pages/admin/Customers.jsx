@@ -4,6 +4,9 @@ import { formatPKR } from '../../lib/utils'
 import { useAsync } from '../../hooks/useAsync'
 import { adminFetchProfiles, adminFetchOrders } from '../../services/adminService'
 import { formatDate } from '../../services/orderService'
+import Pagination, { usePageParam } from '../../components/Pagination'
+
+const PER_PAGE = 20
 
 async function loadAll() {
   const [profiles, orders] = await Promise.all([adminFetchProfiles(), adminFetchOrders()])
@@ -27,6 +30,10 @@ export default function Customers() {
       .map((p) => ({ ...p, stats: stats.get(p.id) || { count: 0, spent: 0 } }))
   }, [data, q])
 
+  const [pageParam, setPage] = usePageParam()
+  const page = Math.min(pageParam, Math.max(1, Math.ceil(rows.length / PER_PAGE)))
+  const pageRows = rows.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+
   return (
     <div>
       <input className="input max-w-xs mb-4" type="search" placeholder="Search name, email, phone&hellip;" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -36,7 +43,7 @@ export default function Customers() {
         <div className="border border-[var(--color-line)] bg-white p-8 text-center text-[var(--color-mute)]">No customers yet</div>
       ) : (
         <div className="border border-[var(--color-line)] bg-white divide-y divide-[var(--color-line)]">
-          {rows.map((p) => (
+          {pageRows.map((p) => (
             <div key={p.id} className="flex flex-wrap gap-3 p-3 items-center">
               <div className="flex-1 min-w-[200px]">
                 <div className="text-sm font-medium">{p.full_name || '(no name)'}{p.role === 'admin' && <span className="ml-2 text-[10px] uppercase tracking-wider text-[var(--color-accent)]">Admin</span>}</div>
@@ -50,6 +57,7 @@ export default function Customers() {
           ))}
         </div>
       )}
+      <Pagination page={page} total={rows.length} perPage={PER_PAGE} onChange={setPage} />
       {data && <p className="text-xs text-[var(--color-mute)] mt-3">{data.profiles.length} accounts</p>}
     </div>
   )

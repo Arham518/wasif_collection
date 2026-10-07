@@ -76,19 +76,26 @@ export async function fetchPublicProducts() {
   return (data || []).map(fromRow)
 }
 
+// Whole gender words filter by gender exactly ("men" is also a substring of "women").
+const GENDER_WORDS = {
+  woman: 'women', women: 'women', womens: 'women', ladies: 'women', lady: 'women', female: 'women', girl: 'women', girls: 'women',
+  man: 'men', men: 'men', mens: 'men', gents: 'men', gent: 'men', male: 'men', boy: 'men', boys: 'men',
+}
+
+// Every typed character counts: tokens are matched as case-insensitive substrings.
 function searchWords(q) {
-  return String(q || '').toLowerCase().split(/\s+/).filter((w) => w && w.length > 1 && !/^\d+$/.test(w))
+  return String(q || '').toLowerCase().split(/[\s,]+/).filter(Boolean)
 }
 
 const SORTERS = {
   'price-asc': (a, b) => a.price - b.price,
   'price-desc': (a, b) => b.price - a.price,
-  newest: (a, b) => (Number(b.dbId) || 0) - (Number(a.dbId) || 0) || String(b.id).localeCompare(String(a.id)),
+  newest: (a, b) => (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0) || (Number(b.dbId) || 0) - (Number(a.dbId) || 0) || String(b.id).localeCompare(String(a.id)),
   rating: (a, b) => (b.rating || 0) - (a.rating || 0),
 }
 
 function haystackOf(p) {
-  return `${p.name} ${p.brand} ${p.category} ${p.subcategory} ${p.color} ${(p.tags || []).join(' ')} ${p.description}`.toLowerCase()
+  return `${p.id} ${p.name} ${p.brand} ${p.category} ${p.subcategory} ${p.color} ${p.fabric} ${p.gender} ${(p.tags || []).join(' ')} ${p.description}`.toLowerCase()
 }
 
 /** Linear filter used for arbitrary lists (and as the core of indexed queries). */
@@ -113,7 +120,10 @@ function applyFilters(list, f, haystack = haystackOf) {
     if (featured && !p.featured) return false
     if (words.length) {
       const hay = haystack(p)
-      for (const w of words) if (!hay.includes(w)) return false
+      for (const w of words) {
+        const g = GENDER_WORDS[w]
+        if (g ? p.gender !== g : !hay.includes(w)) return false
+      }
     }
     return true
   })

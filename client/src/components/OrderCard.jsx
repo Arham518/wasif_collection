@@ -19,7 +19,7 @@ export default function OrderCard({ order: o, children }) {
       <ul className="text-sm space-y-2">
         {(o.items || []).map((it, i) => (
           <li key={i} className="flex gap-3 items-center">
-            {it.image && <LazyImage src={it.image} alt="" sizes="40px" className="w-10 h-12 shrink-0 border border-[var(--color-line)]" />}
+            {it.image && <LazyImage src={it.image} alt="" sizes="40px" className="w-10 aspect-[3/4] shrink-0 border border-[var(--color-line)]" />}
             <span className="flex-1 min-w-0">
               <Link to={`/product/${it.productId}`} className="hover:underline">{it.name}</Link> &times;{it.qty}{it.size ? ` (${it.size})` : ''}
             </span>

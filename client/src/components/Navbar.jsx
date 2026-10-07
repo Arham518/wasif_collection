@@ -1,7 +1,10 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Search, ShoppingBag, Heart, Menu, User, Phone, ChevronDown } from 'lucide-react'
 import { useState } from 'react'
-import { useCart } from '../store/cart'
+import { useCartCount } from '../store/cart'
+import { useSettings } from '../store/settings'
+import { formatPKR } from '../lib/utils'
+import { useDebouncedCallback } from '../hooks/useDebounce'
 import { useWishlist } from '../store/wishlist'
 import { useUI } from '../store/ui'
 import { BRANDS, STORE } from '../data/catalog'
@@ -16,7 +19,7 @@ const links = [
   { to: '/collection?category=Lawn', label: 'Lawn' },
   { to: '/collection?category=Pret', label: 'Pret' },
   { to: '/collection?category=Ethnic', label: 'Ethnic' },
-  { to: '/collection?featured=true', label: 'New' },
+  { to: '/collection?sort=newest', label: 'New' },
 ]
 
 // NavLink ignores the query string, so every /collection?… link looked "active" at once.
@@ -36,7 +39,10 @@ export default function Navbar() {
   const [q, setQ] = useState('')
   const navigate = useNavigate()
   const location = useLocation()
-  const count = useCart((s) => s.items.reduce((n, x) => n + x.qty, 0))
+  const count = useCartCount()
+  const delivery = useSettings((s) => s.delivery)
+  // On the collection page the header search filters live while typing.
+  const live = useDebouncedCallback((v) => navigate(v.trim() ? `/collection?q=${encodeURIComponent(v.trim())}` : '/collection', { replace: true }), 120)
   const wish = useWishlist((s) => s.ids.length)
   const openCart = useUI((s) => s.openCart)
   const liveBrands = useMeta().brands
@@ -67,7 +73,7 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 bg-[var(--color-paper)]/95 backdrop-blur border-b border-[var(--color-line)]">
       <div className="bg-[var(--color-ink)] text-white text-[11px] tracking-[0.12em] uppercase text-center py-2 px-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
-        <span>Free shipping over Rs 5,000 · COD</span>
+        <span>{delivery.freeOver > 0 ? `Free shipping over ${formatPKR(delivery.freeOver)} \u00b7 COD` : 'Cash on delivery'}</span>
         <span className="opacity-40 hidden sm:inline">|</span>
         <span>{STORE.address}</span>
         <a href={STORE.whatsapp} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:underline normal-case tracking-normal">
@@ -97,7 +103,7 @@ export default function Navbar() {
           </div>
         </nav>
         <form onSubmit={onSearch} className="ml-auto hidden md:flex items-center border border-[var(--color-line)] bg-white max-w-xs w-full">
-          <input value={q} onChange={(e) => setQ(e.target.value)} onFocus={warm} placeholder="Search lawn, kurta, brand…" className="flex-1 px-3 py-2 text-sm outline-none" />
+          <input value={q} onChange={(e) => { setQ(e.target.value); if (location.pathname === '/collection') live(e.target.value) }} onFocus={warm} placeholder="Search lawn, kurta, brand…" className="flex-1 px-3 py-2 text-sm outline-none" />
           <button type="submit" className="px-3 text-[var(--color-mute)]" aria-label="Search"><Search size={16} /></button>
         </form>
         <div className="flex items-center gap-3 ml-auto md:ml-3">

@@ -11,7 +11,7 @@ export default function Assistant() {
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState([
-    { role: 'bot', text: 'Salam! Rana Collection assistant hoon. Try: "women lawn under 5000 Khaadi" ya "men kurta navy".' },
+    { role: 'bot', text: 'Hi! I can help you find outfits. Try "women lawn under 5000 Khaadi" or "men kurta navy".' },
   ])
   const endRef = useRef(null)
   const add = useCart((s) => s.add)

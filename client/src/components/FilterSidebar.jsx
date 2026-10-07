@@ -25,6 +25,7 @@ function FilterSidebar({ meta, filters, setFilters, className = '', hideBrand = 
             type="search"
             placeholder="Kurta, lawn, navy…"
             value={filters.q || ''}
+            delay={100}
             onCommit={(v) => set('q', v.trim())}
             aria-label="Search products"
           />

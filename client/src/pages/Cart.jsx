@@ -1,13 +1,18 @@
 import { Link } from 'react-router-dom'
 import LazyImage from '../components/LazyImage'
-import { useCart } from '../store/cart'
+import { useCart, useCartSubtotal } from '../store/cart'
+import { useSettings } from '../store/settings'
+import { shippingFor } from '../lib/cartLogic'
 import { formatPKR } from '../lib/utils'
 import { Minus, Plus, Trash2 } from 'lucide-react'
 
 export default function Cart() {
-  const { items, setQty, remove, subtotal } = useCart()
-  const total = subtotal()
-  const ship = total >= 5000 || total === 0 ? 0 : 250
+  const items = useCart((s) => s.items)
+  const setQty = useCart((s) => s.setQty)
+  const remove = useCart((s) => s.remove)
+  const total = useCartSubtotal()
+  const delivery = useSettings((s) => s.delivery)
+  const ship = shippingFor(total, delivery)
 
   if (!items.length) {
     return (

@@ -28,15 +28,12 @@ export default function Footer() {
           <ul className="space-y-2 text-[#b9b1a4]">
             <li>{STORE.address}</li>
             <li><a href={STORE.whatsapp} target="_blank" rel="noreferrer">{STORE.phoneDisplay}</a></li>
+            <li><a href={`mailto:${STORE.email}`}>{STORE.email}</a></li>
             <li><Link to="/account">My account</Link></li>
-            <li><Link to="/admin/login">Owner login</Link></li>
           </ul>
         </div>
         <div>
-          <div className="text-[11px] tracking-[0.16em] uppercase text-white mb-3">Credits</div>
-          <p className="text-[#b9b1a4] text-[12px] leading-relaxed">
-            Sample catalogue. Photos: Pexels (free license). See CREDITS.md.
-          </p>
+          <p className="text-[#b9b1a4] text-[12px] leading-relaxed">Your trust, our standard.</p>
         </div>
       </div>
       <div className="border-t border-white/10 text-[11px] tracking-wider uppercase text-center py-4 text-[#8f877a]">

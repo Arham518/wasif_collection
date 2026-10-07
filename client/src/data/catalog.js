@@ -1,9 +1,10 @@
 export const STORE = {
   name: 'Rana Collection',
   address: 'Shahi Bazar',
-  phone: '03103323518',
-  phoneDisplay: '0310 3323518',
-  whatsapp: 'https://wa.me/923103323518',
+  phone: '03002825097',
+  phoneDisplay: '0300 2825097',
+  whatsapp: 'https://wa.me/923002825097',
+  email: 'wasafyounas1050@gmail.com',
 }
 
 export const PK_CITIES = [

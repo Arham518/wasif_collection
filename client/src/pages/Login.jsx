@@ -70,7 +70,7 @@ export default function Login({ mode: modeProp }) {
     <div className="container-x py-16 max-w-md">
       <h1 className="font-display text-3xl mb-2">{mode === 'login' ? 'Log in' : 'Create account'}</h1>
       <p className="text-sm text-[var(--color-mute)] mb-6">
-        {next === '/checkout' ? 'Order place karne ke liye login karein. Aapka bag save hai.' : 'Rana Collection account: profile, orders and order history.'}
+        {next === '/checkout' ? 'Log in to place your order. Your bag is saved.' : 'Rana Collection account: profile, orders and order history.'}
       </p>
       <div className="flex gap-2 mb-4">
         <button type="button" className={`chip ${mode === 'login' ? 'active' : ''}`} onClick={() => { setMode('login'); setSent('') }}>Log in</button>
@@ -91,6 +91,7 @@ export default function Login({ mode: modeProp }) {
           )}
           <input className="input" type="email" placeholder="Email" autoComplete="email" value={form.email} onChange={set('email')} required />
           <input className="input" type="password" placeholder="Password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} value={form.password} onChange={set('password')} required />
+          {mode === 'login' && <div className="text-right"><Link to="/forgot-password" className="text-xs underline text-[var(--color-mute)]">Forgot password?</Link></div>}
           {mode === 'register' && (
             <input className="input" type="password" placeholder="Confirm password" autoComplete="new-password" value={form.confirm} onChange={set('confirm')} required />
           )}

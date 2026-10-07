@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useCart } from '../store/cart'
 import { useAuth } from '../store/auth'
+import { useSettings } from '../store/settings'
+import { shippingFor } from '../lib/cartLogic'
 import { formatPKR } from '../lib/utils'
 import { errorMessage } from '../lib/supabase'
 import { placeOrder } from '../services/orderService'
@@ -32,7 +34,7 @@ export default function Checkout() {
         <h1 className="font-display text-3xl mb-3">Order placed</h1>
         <p className="text-[var(--color-ink-soft)] mb-2">Order <strong>{order.orderNumber}</strong></p>
         <p className="text-sm text-[var(--color-mute)] mb-2">Payment: {String(order.paymentMethod).toUpperCase()} &middot; Total {formatPKR(order.total)}</p>
-        <p className="text-xs text-[var(--color-mute)] mb-6">Order aapke account mein save ho gaya hai. Status &quot;My orders&quot; mein dekh sakte hain.</p>
+        <p className="text-xs text-[var(--color-mute)] mb-6">Your order is saved to your account. Track its status in My orders.</p>
         <div className="flex gap-3 justify-center">
           <Link to="/" className="btn inline-flex">Home</Link>
           <Link to="/account?tab=orders" className="btn btn-outline inline-flex">My orders</Link>
@@ -49,7 +51,7 @@ export default function Checkout() {
       <div className="container-x py-20 text-center max-w-lg">
         <p className="text-[11px] tracking-[0.2em] uppercase text-[var(--color-mute)] mb-2">Checkout</p>
         <h1 className="font-display text-3xl mb-3">Please log in to place your order</h1>
-        <p className="text-[var(--color-ink-soft)] mb-8">Aapka bag save hai ({items.length} {items.length === 1 ? 'item' : 'items'} &middot; {formatPKR(total)}). Login ya account banane ke baad yahin wapas aayenge.</p>
+        <p className="text-[var(--color-ink-soft)] mb-8">Your bag is saved ({items.length} {items.length === 1 ? 'item' : 'items'} &middot; {formatPKR(total)}). You will come back here after you log in.</p>
         <div className="flex flex-wrap gap-3 justify-center">
           <Link to="/login?next=%2Fcheckout" className="btn inline-flex">Log in</Link>
           <Link to="/login?mode=register&next=%2Fcheckout" className="btn btn-outline inline-flex">Create account</Link>
@@ -92,7 +94,8 @@ function CheckoutForm({ items, total, clear, onPlaced }) {
     }))
   }
   const navigate = useNavigate()
-  const ship = total >= 5000 || total === 0 ? 0 : 250
+  const delivery = useSettings((s) => s.delivery)
+  const ship = shippingFor(total, delivery)
 
   function validateAddress() {
     if (!form.name.trim() || form.name.trim().length < 3) return 'Full name required'

@@ -5,6 +5,8 @@ import { useCart } from '../store/cart'
 import { useWishlist } from '../store/wishlist'
 import { useUI } from '../store/ui'
 import { BRANDS, STORE } from '../data/catalog'
+import { useMeta } from '../store/catalog'
+import { useAuth } from '../store/auth'
 import Drawer from './Drawer'
 import { prefetch } from '../routes'
 
@@ -37,6 +39,11 @@ export default function Navbar() {
   const count = useCart((s) => s.items.reduce((n, x) => n + x.qty, 0))
   const wish = useWishlist((s) => s.ids.length)
   const openCart = useUI((s) => s.openCart)
+  const liveBrands = useMeta().brands
+  const brands = liveBrands.length ? liveBrands : BRANDS
+  const user = useAuth((s) => s.user)
+  const isAdmin = useAuth((s) => s.profile?.role === 'admin')
+  const accountTo = isAdmin ? '/admin/dashboard' : user ? '/account' : '/login'
 
   // Close menus whenever the route changes (back/forward, search, any link).
   const routeKey = location.pathname + location.search
@@ -81,7 +88,7 @@ export default function Navbar() {
             {brandsOpen && (
               <div className="absolute top-full left-0 pt-2 z-10">
                 <div className="bg-white border border-[var(--color-line)] min-w-[200px] py-2 shadow-lg">
-                  {BRANDS.map((b) => (
+                  {brands.map((b) => (
                     <Link key={b} to={`/brand/${encodeURIComponent(b)}`} className="block px-4 py-2 text-[11px] tracking-wider normal-case hover:bg-[var(--color-paper-2)]">{b}</Link>
                   ))}
                 </div>
@@ -102,7 +109,7 @@ export default function Navbar() {
             <ShoppingBag size={18} />
             {count > 0 && <span className="absolute -top-1 -right-1 text-[10px] bg-[var(--color-ink)] text-white w-4 h-4 rounded-full grid place-items-center">{count}</span>}
           </button>
-          <Link to="/admin" className="p-1 hidden sm:block" aria-label="Admin"><User size={18} /></Link>
+          <Link to={accountTo} className="p-1 hidden sm:block" aria-label={user ? 'Account' : 'Log in'}><User size={18} /></Link>
         </div>
       </div>
 
@@ -121,13 +128,14 @@ export default function Navbar() {
           </button>
           {mobileBrands && (
             <div className="flex flex-col py-1 border-b border-[var(--color-line)]">
-              {BRANDS.map((b) => (
+              {brands.map((b) => (
                 <Link key={b} to={`/brand/${encodeURIComponent(b)}`} onClick={() => setOpen(false)} className="text-sm py-2 pl-3 text-[var(--color-ink-soft)]">{b}</Link>
               ))}
             </div>
           )}
           <Link to="/wishlist" onClick={() => setOpen(false)} className="text-sm tracking-widest uppercase py-3 border-b border-[var(--color-line)]">Wishlist{wish > 0 ? ` (${wish})` : ''}</Link>
-          <Link to="/admin" onClick={() => setOpen(false)} className="text-sm tracking-widest uppercase py-3">Admin</Link>
+          <Link to={user ? '/account' : '/login'} onClick={() => setOpen(false)} className={`text-sm tracking-widest uppercase py-3 ${isAdmin ? 'border-b border-[var(--color-line)]' : ''}`}>{user ? 'My account' : 'Log in'}</Link>
+          {isAdmin && <Link to="/admin/dashboard" onClick={() => setOpen(false)} className="text-sm tracking-widest uppercase py-3">Admin</Link>}
         </nav>
         <div className="mt-6 pt-4 border-t border-[var(--color-line)] space-y-1">
           <a href={STORE.whatsapp} target="_blank" rel="noreferrer" className="block text-sm py-1">{STORE.phoneDisplay} · WhatsApp</a>

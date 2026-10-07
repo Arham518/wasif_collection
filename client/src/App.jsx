@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { Suspense, useEffect } from 'react'
 import Lenis from 'lenis'
@@ -7,11 +7,18 @@ import Footer from './components/Footer'
 import Assistant from './components/Assistant'
 import CartDrawer from './components/CartDrawer'
 import WhatsAppButton from './components/WhatsAppButton'
+import { RequireAuth, RequireAdmin } from './components/RequireAuth'
+import { PageLoader } from './components/Skeleton'
 import Home from './pages/Home'
 import { Pages, prefetch } from './routes'
 import { setLenis, scrollToTop } from './lib/scroll'
+import { useAuth } from './store/auth'
+import { useCatalog } from './store/catalog'
 
-const { Collection, Brand, Product, Cart, Checkout, Wishlist, Admin, NotFound } = Pages
+const {
+  Collection, Brand, Product, Cart, Checkout, Wishlist, Login, Account, NotFound,
+  AdminLogin, AdminLayout, AdminStatistics, AdminProducts, AdminProductForm, AdminCategories, AdminOrders, AdminCustomers,
+} = Pages
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -19,19 +26,24 @@ function ScrollToTop() {
   return null
 }
 
-function PageFallback() {
+// Shopper widgets (style assistant, WhatsApp bubble) are hidden inside the admin area.
+function ShopWidgets() {
+  const { pathname } = useLocation()
+  if (pathname.startsWith('/admin')) return null
   return (
-    <div className="container-x py-8 min-h-[60vh]" aria-busy="true">
-      <div className="h-3 w-16 img-skeleton mb-3" />
-      <div className="h-8 w-48 img-skeleton mb-8" />
-      <div className="product-grid">
-        {Array.from({ length: 8 }, (_, i) => <div key={i} className="aspect-[3/4] bg-white img-skeleton" />)}
-      </div>
-    </div>
+    <>
+      <Assistant />
+      <WhatsAppButton />
+    </>
   )
 }
 
 export default function App() {
+  useEffect(() => {
+    useAuth.getState().init()
+    useCatalog.getState().load()
+  }, [])
+
   useEffect(() => {
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
     if (reduce) return
@@ -60,7 +72,7 @@ export default function App() {
       <div className="min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-1">
-          <Suspense fallback={<PageFallback />}>
+          <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/women" element={<Collection gender="women" />} />
@@ -71,14 +83,27 @@ export default function App() {
               <Route path="/cart" element={<Cart />} />
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/wishlist" element={<Wishlist />} />
-              <Route path="/admin" element={<Admin />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Login mode="register" />} />
+              <Route path="/account" element={<RequireAuth><Account /></RequireAuth>} />
+              <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+              <Route path="/admin/login" element={<AdminLogin />} />
+              <Route path="/admin/dashboard" element={<RequireAdmin><AdminLayout /></RequireAdmin>}>
+                <Route index element={<AdminStatistics />} />
+                <Route path="statistics" element={<AdminStatistics />} />
+                <Route path="products" element={<AdminProducts />} />
+                <Route path="products/new" element={<AdminProductForm />} />
+                <Route path="products/:code/edit" element={<AdminProductForm />} />
+                <Route path="categories" element={<AdminCategories />} />
+                <Route path="orders" element={<AdminOrders />} />
+                <Route path="customers" element={<AdminCustomers />} />
+              </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
         </main>
         <Footer />
-        <Assistant />
-        <WhatsAppButton />
+        <ShopWidgets />
         <CartDrawer />
         <Toaster position="bottom-left" richColors closeButton />
       </div>

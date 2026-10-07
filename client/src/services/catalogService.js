@@ -1,23 +1,80 @@
 // Catalogue data-access layer.
 //
-// There is no backend: products come from the bundled seed catalogue plus
-// owner edits stored in localStorage. This module is the single place that
-// turns that raw data into something fast to query, and caches the result so
-// every page/component shares the same work instead of rebuilding it:
-//   - ProductIndex: O(1) Map lookups by id / slug, pre-bucketed by
+// Products live in Supabase (table public.products). This module:
+//   - maps database rows to the product shape the UI uses (id = `code`, e.g. p001)
+//   - fetches the public (active) catalogue
+//   - builds a cached ProductIndex per product list so every page/component
+//     shares the same work: O(1) Map lookups by id / slug, pre-bucketed by
 //     gender / brand / category / color, pre-computed lowercase search text,
 //     cached meta (brand / category / color lists) and a small LRU cache of
 //     filter results.
-//   - CatalogService: builds a ProductIndex once per data change (memoised on
-//     the owner-product / deleted-id references) and hands out the cached one.
 
-import { SEED_PRODUCTS } from '../data/catalog'
+import { requireSupabase } from '../lib/supabase'
 
 export const slugify = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
 const norm = (v) => String(v ?? '').trim().toLowerCase()
 const EMPTY = Object.freeze([])
 const BUCKET_KEYS = ['gender', 'brand', 'category', 'color']
 const QUERY_CACHE_SIZE = 60
+
+const toArray = (v) => {
+  if (Array.isArray(v)) return v.filter(Boolean).map(String)
+  if (typeof v === 'string' && v.trim()) {
+    const s = v.trim()
+    if (s.startsWith('[')) { try { return toArray(JSON.parse(s)) } catch { /* fall through */ } }
+    return s.split(',').map((x) => x.trim()).filter(Boolean)
+  }
+  return []
+}
+
+// Bundled catalogue photos are stored in Supabase as absolute URLs of the live site
+// (https://<site>/products/w01.webp). Serve them from this build instead (same file),
+// so local dev works and responsive srcset / JPG fallback still apply.
+const BUNDLED_PHOTO = /^https?:\/\/[^/]+(\/products\/[a-z]\d+(?:-400)?\.(?:webp|jpg))$/i
+export function normalizeImage(url) {
+  if (!url) return url
+  const s = String(url).trim()
+  const m = BUNDLED_PHOTO.exec(s)
+  return m && !/\.supabase\.co\//i.test(s) ? m[1] : s
+}
+
+/** Database row -> UI product. */
+export function fromRow(r) {
+  const images = toArray(r.images).length ? toArray(r.images) : toArray(r.image_url)
+  return {
+    id: String(r.code ?? '').trim() || String(r.id),
+    dbId: r.id,
+    code: r.code ?? null,
+    name: r.name || 'Product',
+    brand: r.brand || '',
+    category: r.category || '',
+    subcategory: r.subcategory || '',
+    price: Number(r.price) || 0,
+    color: r.color || '',
+    fabric: r.fabric || '',
+    gender: String(r.gender || '').toLowerCase(),
+    sizes: toArray(r.sizes),
+    tags: toArray(r.tags),
+    description: r.description || '',
+    images: images.map(normalizeImage),
+    images360: toArray(r.images360).map(normalizeImage),
+    stock: r.stock == null ? null : Number(r.stock),
+    featured: !!r.featured,
+    rating: Number(r.rating) || 0,
+    reviews: Number(r.reviews) || 0,
+    priceNote: r.price_note || '',
+    active: r.active !== false,
+    createdAt: r.created_at || null,
+  }
+}
+
+/** Public catalogue: active products only (same rows the WhatsApp bot reads). */
+export async function fetchPublicProducts() {
+  const sb = requireSupabase()
+  const { data, error } = await sb.from('products').select('*').not('active', 'is', false).order('id', { ascending: true })
+  if (error) throw error
+  return (data || []).map(fromRow)
+}
 
 function searchWords(q) {
   return String(q || '').toLowerCase().split(/\s+/).filter((w) => w && w.length > 1 && !/^\d+$/.test(w))
@@ -26,7 +83,7 @@ function searchWords(q) {
 const SORTERS = {
   'price-asc': (a, b) => a.price - b.price,
   'price-desc': (a, b) => b.price - a.price,
-  newest: (a, b) => String(b.id).localeCompare(String(a.id)),
+  newest: (a, b) => (Number(b.dbId) || 0) - (Number(a.dbId) || 0) || String(b.id).localeCompare(String(a.id)),
   rating: (a, b) => (b.rating || 0) - (a.rating || 0),
 }
 
@@ -75,6 +132,7 @@ export class ProductIndex {
   constructor(products) {
     this.list = Object.freeze(products)
     this.byId = new Map()
+    this.byDbId = new Map()
     this.bySlug = new Map()
     this.buckets = Object.fromEntries(BUCKET_KEYS.map((k) => [k, new Map()]))
     this.hay = new Map()
@@ -83,6 +141,8 @@ export class ProductIndex {
 
     for (const p of products) {
       this.byId.set(p.id, p)
+      if (p.code) this.byId.set(String(p.code).toLowerCase(), p)
+      if (p.dbId != null) this.byDbId.set(String(p.dbId), p)
       this.bySlug.set(p.slug || slugify(p.name), p)
       this.hay.set(p.id, haystackOf(p))
       for (const k of BUCKET_KEYS) {
@@ -97,13 +157,14 @@ export class ProductIndex {
 
   get size() { return this.list.length }
 
-  /** O(1) lookup by product id or slug. */
+  /** O(1) lookup by product code (p001), slug, or database id. */
   get(idOrSlug) {
     if (!idOrSlug) return undefined
-    return this.byId.get(idOrSlug) ?? this.bySlug.get(String(idOrSlug).toLowerCase())
+    const key = String(idOrSlug)
+    return this.byId.get(key) ?? this.byId.get(key.toLowerCase()) ?? this.bySlug.get(key.toLowerCase()) ?? this.byDbId.get(key)
   }
 
-  /** Brand / category / color lists and counts — computed once per index. */
+  /** Brand / category / color lists and counts - computed once per index. */
   meta() {
     if (this.metaCache) return this.metaCache
     const sorted = (k) => [...this.buckets[k].values()].map((b) => b[0][k]).sort()
@@ -142,40 +203,21 @@ export class ProductIndex {
   }
 }
 
-export class CatalogService {
-  #seed
-  #ownerRef = null
-  #deletedRef = null
-  #index = null
+// One index per product-list reference (rebuilt only when the list changes).
+const indexes = new WeakMap()
 
-  constructor(seed) {
-    this.#seed = seed
-  }
-
-  /** Cached index for the given owner data; rebuilt only when that data changes. */
-  index(ownerProducts = EMPTY, deletedIds = EMPTY) {
-    if (this.#index && ownerProducts === this.#ownerRef && deletedIds === this.#deletedRef) return this.#index
-    const deleted = new Set(deletedIds)
-    const map = new Map()
-    for (const p of this.#seed) if (!deleted.has(p.id)) map.set(p.id, p)
-    for (const p of ownerProducts) map.set(p.id, p)
-    this.#ownerRef = ownerProducts
-    this.#deletedRef = deletedIds
-    this.#index = new ProductIndex([...map.values()])
-    return this.#index
-  }
-
-  /** Last built index (or the seed-only one). */
-  current() {
-    return this.#index || this.index()
-  }
-
-  /** Filter any list. Uses the cached index when given the current product list. */
+export const catalogService = {
+  index(list = EMPTY) {
+    let idx = indexes.get(list)
+    if (!idx) {
+      idx = new ProductIndex(list)
+      indexes.set(list, idx)
+    }
+    return idx
+  },
+  /** Filter any list. Uses the cached index when the list already has one. */
   filter(list, f = {}) {
-    const idx = this.#index
-    if (idx && list === idx.list) return idx.query(f)
-    return applyFilters(list, f)
-  }
+    const idx = indexes.get(list)
+    return idx ? idx.query(f) : applyFilters(list, f)
+  },
 }
-
-export const catalogService = new CatalogService(SEED_PRODUCTS)

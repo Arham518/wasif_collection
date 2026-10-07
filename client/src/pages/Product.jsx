@@ -8,7 +8,8 @@ import { warmMedia } from '../lib/imageCache'
 import { useCart } from '../store/cart'
 import { useWishlist } from '../store/wishlist'
 import { useUI } from '../store/ui'
-import { useProduct, useCatalogIndex } from '../store/catalog'
+import { useProduct, useCatalogIndex, useCatalogLoading } from '../store/catalog'
+import { PageLoader } from '../components/Skeleton'
 import { toast } from 'sonner'
 import { Heart } from 'lucide-react'
 
@@ -21,6 +22,7 @@ export default function Product() {
 function ProductView({ id }) {
   const product = useProduct(id)
   const index = useCatalogIndex()
+  const loading = useCatalogLoading()
   const has360 = !!(product?.images360?.length)
   const [size, setSize] = useState(product?.sizes?.[1] || product?.sizes?.[0] || 'M')
   const [tab, setTab] = useState('photos')
@@ -43,6 +45,7 @@ function ProductView({ id }) {
       .slice(0, 8)
   }, [index, product])
 
+  if (!product && loading) return <PageLoader />
   if (!product) {
     return (
       <div className="container-x py-20 text-center">

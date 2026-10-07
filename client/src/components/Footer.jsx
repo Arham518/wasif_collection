@@ -28,7 +28,8 @@ export default function Footer() {
           <ul className="space-y-2 text-[#b9b1a4]">
             <li>{STORE.address}</li>
             <li><a href={STORE.whatsapp} target="_blank" rel="noreferrer">{STORE.phoneDisplay}</a></li>
-            <li><Link to="/admin">Owner login</Link></li>
+            <li><Link to="/account">My account</Link></li>
+            <li><Link to="/admin/login">Owner login</Link></li>
           </ul>
         </div>
         <div>

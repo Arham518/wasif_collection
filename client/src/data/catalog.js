@@ -1,4 +1,3 @@
-export const ADMIN_PASSWORD = 'arham123'
 export const STORE = {
   name: 'Rana Collection',
   address: 'Shahi Bazar',

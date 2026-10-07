@@ -4,7 +4,8 @@ import ProductCard from '../components/ProductCard'
 import FilterSidebar from '../components/FilterSidebar'
 import Drawer from '../components/Drawer'
 import { SlidersHorizontal } from 'lucide-react'
-import { useMeta, useFilteredProducts } from '../store/catalog'
+import { useMeta, useFilteredProducts, useCatalogLoading } from '../store/catalog'
+import { ProductGridSkeleton } from '../components/Skeleton'
 import { scrollToTop } from '../lib/scroll'
 
 const LIMIT = 24
@@ -14,6 +15,7 @@ export default function Collection({ gender: genderProp, brand: brandProp }) {
   const [params, setParams] = useSearchParams()
   const [drawer, setDrawer] = useState(false)
   const meta = useMeta()
+  const loading = useCatalogLoading()
 
   const filters = useMemo(() => ({
     gender: genderProp || params.get('gender') || '',
@@ -76,7 +78,9 @@ export default function Collection({ gender: genderProp, brand: brandProp }) {
       <div className="grid lg:grid-cols-[240px_1fr] gap-8">
         <FilterSidebar meta={meta} filters={filters} setFilters={setFilters} hideBrand={!!brandProp} className="hidden lg:block sticky top-28 self-start" />
         <div>
-          {!pageItems.length ? (
+          {loading ? (
+            <ProductGridSkeleton />
+          ) : !pageItems.length ? (
             <div className="border border-[var(--color-line)] bg-white p-12 text-center text-[var(--color-mute)]">No products match these filters.</div>
           ) : (
             <div className="product-grid">

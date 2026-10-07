@@ -2,7 +2,7 @@ import { memo, useEffect, useState } from 'react'
 import { FALLBACK_IMAGE, cn, jpgFallback, mediaUrl, srcSetFor } from '../lib/utils'
 import { isImageLoaded, markImageLoaded, resolveMedia, resolveMediaSync } from '../lib/imageCache'
 
-/** Resolve "idb:" owner uploads to object URLs; everything else passes straight through. */
+/** Resolve the media URL (bundled /products/... files or Supabase Storage URLs). */
 function useResolvedSrc(src) {
   const wanted = mediaUrl(src)
   const [state, setState] = useState(() => ({ wanted, url: resolveMediaSync(wanted) }))

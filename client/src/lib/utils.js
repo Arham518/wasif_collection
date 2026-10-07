@@ -19,6 +19,8 @@ const PRODUCT_WEBP = /^\/products\/([a-z]\d+)\.webp$/
 
 export function mediaUrl(path) {
   if (!path) return FALLBACK_IMAGE
+  // Old browser-only uploads ("idb:" refs from the previous local admin) no longer exist.
+  if (typeof path === 'string' && path.startsWith('idb:')) return FALLBACK_IMAGE
   const m = PRODUCT_JPG.exec(path)
   if (m) return `/products/${m[1]}.webp`
   return path

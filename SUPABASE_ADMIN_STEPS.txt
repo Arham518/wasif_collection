@@ -1,0 +1,56 @@
+RANA COLLECTION - LOGIN, ACCOUNT AUR ADMIN DASHBOARD (SUPABASE) - ASAAN STEPS
+=============================================================================
+
+STEP 1) SQL chalayen (sirf ek dafa, dobara chalana bhi safe hai)
+  - supabase.com par apna project kholen.
+  - Left menu: SQL Editor > New query.
+  - Is file ka POORA text copy karke paste karein:
+        supabase\auth_admin_setup.sql
+  - "Run" dabayen. Neeche ek line aayegi: products / categories / profiles / orders ki ginti.
+  - Ye script products ko change NAHI karti (28 products waise hi rahenge, WhatsApp bot bhi chalta rahega).
+    Ye banati hai: profiles (customer/admin role), categories, orders, is_admin() function,
+    RLS security rules, aur product-images bucket ki upload permissions (sirf admin).
+
+STEP 2) Email confirm ka option (apni marzi)
+  - Authentication > Sign In / Providers > Email.
+  - "Confirm email" OFF karein agar chahte hain ke register karte hi login ho jaye.
+  - Agar ON rakhein: register ke baad email mein link aayega, us par click karke phir /login par login karein.
+    (ON rakhein to Authentication > URL Configuration mein "Site URL" apni website ka link rakhein,
+     jaise https://wasifcloth.netlify.app , taake email ka link sahi page par khule.)
+
+STEP 3) Website par apna account banayen
+  - Website kholen aur /login par jayen (jaise https://wasifcloth.netlify.app/login).
+  - "Register" dabayen, naam, email, password daal kar account banayen.
+
+STEP 4) Apne aap ko ADMIN banayen
+  - Wapas Supabase > SQL Editor > New query mein ye line likhen (apna email daalen) aur Run karein:
+        update public.profiles set role = 'admin' where email = 'YOUR_EMAIL';
+  - Check: Table Editor > profiles mein aapki row ka role "admin" hona chahiye.
+
+STEP 5) Admin login
+  - Website par /admin/login kholen, wohi email aur password daalen.
+  - Aap /admin/dashboard par pohanch jayenge:
+      Statistics  - products, customers, orders, revenue, status-wise orders, top products
+      Products    - list, Edit, Delete (trash icon)
+      Add product - naya product + photos (photos Supabase Storage "product-images" mein upload hoti hain)
+      Categories  - add / rename / hide / delete
+      Orders      - har order dekhen aur status badlen (Placed > Confirmed > Shipped > Delivered / Cancelled)
+      Customers   - registered customers ki list
+  - Naye product ka code khud ban jata hai (p029, p030 ...). Product link: /product/p029
+  - Purana password (arham123) ab khatam hai. Ab sirf Supabase admin account se login hota hai.
+
+CUSTOMERS KE LIYE
+  - Bina login: products dekhna, search/filter, cart mein daalna sab chalta hai.
+  - Checkout par login zaroori hai (cart save rehta hai).
+  - /account par: profile edit, "My orders" mein order history aur status.
+
+STEP 6) Netlify par upload (build)
+  - Command Prompt / PowerShell kholen:
+        cd C:\Users\Arham\Desktop\pk_fashion_store_full\client
+        npm run build
+  - Phir Netlify > aapki site > Deploys par "client\dist" folder drag & drop kar dein.
+  - ZAROORI NOTE: VITE_SUPABASE_URL aur VITE_SUPABASE_ANON_KEY build ke waqt website ke andar
+    "bake" ho jate hain (file: client\.env.local). Keys badlen to dobara "npm run build" karke upload karein.
+    Agar kabhi Netlify khud GitHub se build kare, to ye dono variables Netlify > Site settings >
+    Environment variables mein bhi daalne honge.
+  - client\.env.local GitHub par nahi jati (gitignore mein hai). Service-role key kabhi website mein na daalen.

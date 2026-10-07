@@ -18,6 +18,7 @@ export default defineConfig({
         codeSplitting: {
           groups: [
             { name: 'react-vendor', test: /node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler|cookie|set-cookie-parser)[\\/]/, priority: 20 },
+            { name: 'supabase-vendor', test: /node_modules[\\/]@supabase[\\/]/, priority: 15 },
             { name: 'ui-vendor', test: /node_modules[\\/](lenis|sonner|zustand|lucide-react|clsx|tailwind-merge)[\\/]/, priority: 10 },
           ],
         },

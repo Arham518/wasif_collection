@@ -1,4 +1,3 @@
-import { getCachedImageUrl, getImageUrl, isIdbRef } from '../services/imageStore'
 import { mediaUrl } from './utils'
 
 // Module-level set of image URLs that have finished loading at least once in
@@ -28,16 +27,15 @@ export function preloadImage(src) {
   return p
 }
 
-/** Synchronously resolve a media reference, or null if it needs an async IndexedDB read. */
+// Product photos are plain URLs now (bundled /products/... files or Supabase Storage
+// public URLs), so they resolve synchronously.
 export function resolveMediaSync(src) {
-  if (!isIdbRef(src)) return src
-  return getCachedImageUrl(src)
+  return src
 }
 
-export const resolveMedia = (src) => getImageUrl(src)
+export const resolveMedia = (src) => Promise.resolve(src)
 
-/** Resolve (IndexedDB uploads included) and preload a product photo. */
+/** Preload a product photo. */
 export function warmMedia(src) {
-  const url = mediaUrl(src)
-  return isIdbRef(url) ? getImageUrl(url).then((u) => (u ? preloadImage(u) : null)) : preloadImage(url)
+  return preloadImage(mediaUrl(src))
 }

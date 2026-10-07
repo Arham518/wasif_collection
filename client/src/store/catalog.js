@@ -1,23 +1,11 @@
 import { useMemo } from 'react'
 import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
 import { toast } from 'sonner'
 import { SEED_PRODUCTS, BRANDS, CATEGORIES, COLORS } from '../data/catalog'
-import { catalogService } from '../services/catalogService'
+import { catalogService, fetchPublicProducts } from '../services/catalogService'
+import { errorMessage } from '../lib/supabase'
 
-export { saveImageBlob, getImageUrl } from '../services/imageStore'
-
-// localStorage wrapper that never crashes the app when the ~5 MB quota is full.
-const safeStorage = {
-  getItem: (k) => { try { return localStorage.getItem(k) } catch { return null } },
-  setItem: (k, v) => {
-    try { localStorage.setItem(k, v) } catch (err) {
-      console.warn('Could not save catalogue to localStorage', err)
-      toast.error('Storage full — remove some owner products or photos.')
-    }
-  },
-  removeItem: (k) => { try { localStorage.removeItem(k) } catch { /* ignore */ } },
-}
+const EMPTY = Object.freeze([])
 
 /** Filter + sort products. Served from the cached ProductIndex when possible. */
 export function filterProducts(list, f = {}) {
@@ -26,7 +14,7 @@ export function filterProducts(list, f = {}) {
 
 export function runAssistant(message, products) {
   const lower = String(message || '').toLowerCase().trim()
-  if (!lower) return { reply: 'Kuch poochhein — e.g. women lawn under 5000 Khaadi', products: [], filters: {} }
+  if (!lower) return { reply: 'Kuch poochhein \u2014 e.g. women lawn under 5000 Khaadi', products: [], filters: {} }
   const f = {}
   if (/\bwom[ae]n|ladies|girl|aurat|khawateen\b/.test(lower)) f.gender = 'women'
   if (/\bmen|gents|mard|boys?\b/.test(lower)) f.gender = 'men'
@@ -59,7 +47,7 @@ export function runAssistant(message, products) {
   if (!matched.length) {
     return { reply: 'Koi matching product nahi mila. Brand, gender, category ya max price try karein.', products: [], filters: f }
   }
-  const names = matched.slice(0, 3).map((p) => `${p.name} (${p.brand}) — Rs ${p.price.toLocaleString()}`).join('; ')
+  const names = matched.slice(0, 3).map((p) => `${p.name} (${p.brand}) \u2014 Rs ${p.price.toLocaleString()}`).join('; ')
   return {
     reply: `Maine ${matched.length} items dhundhe. Top: ${names}. Sample prices hain (typical market range).`,
     products: matched,
@@ -67,49 +55,62 @@ export function runAssistant(message, products) {
   }
 }
 
-export const useCatalog = create(
-  persist(
-    (set, get) => ({
-      ownerProducts: [], // added/edited by owner (overrides seed by id)
-      deletedIds: [],
-      orders: [],
-      all: () => catalogService.index(get().ownerProducts, get().deletedIds).list,
-      getById: (id) => catalogService.index(get().ownerProducts, get().deletedIds).get(id),
-      meta: () => catalogService.index(get().ownerProducts, get().deletedIds).meta(),
-      upsertProduct: (product) => {
-        const ownerProducts = [...get().ownerProducts]
-        const i = ownerProducts.findIndex((p) => p.id === product.id)
-        if (i >= 0) ownerProducts[i] = product
-        else ownerProducts.unshift(product)
-        set({ ownerProducts, deletedIds: get().deletedIds.filter((id) => id !== product.id) })
-      },
-      removeProduct: (id) => {
-        set({
-          ownerProducts: get().ownerProducts.filter((p) => p.id !== id),
-          deletedIds: [...new Set([...get().deletedIds, id])],
-        })
-      },
-      addOrder: (order) => set({ orders: [order, ...get().orders] }),
-    }),
-    { name: 'pkf-catalog-v1', storage: createJSONStorage(() => safeStorage), partialize: (s) => ({ ownerProducts: s.ownerProducts, deletedIds: s.deletedIds, orders: s.orders }) },
-  ),
-)
+// Live catalogue from Supabase (no localStorage). If Supabase can't be reached the
+// bundled seed catalogue is shown read-only as an offline fallback.
+let inflight = null
+
+export const useCatalog = create((set, get) => ({
+  products: EMPTY,
+  status: 'idle', // idle | loading | ready
+  source: null, // 'supabase' | 'fallback'
+  error: null,
+  load: ({ force = false } = {}) => {
+    const s = get()
+    if (inflight) return inflight
+    if (!force && s.status === 'ready' && s.source === 'supabase') return Promise.resolve(s.products)
+    if (!s.products.length) set({ status: 'loading' })
+    inflight = fetchPublicProducts()
+      .then((products) => {
+        set({ products, status: 'ready', source: 'supabase', error: null })
+        return products
+      })
+      .catch((err) => {
+        console.warn('Could not load products from Supabase', err)
+        const msg = errorMessage(err)
+        if (get().source !== 'supabase') {
+          set({ products: SEED_PRODUCTS, status: 'ready', source: 'fallback', error: msg })
+          toast.error('Live catalogue unavailable \u2014 showing the offline catalogue.', { id: 'catalog-offline' })
+        } else {
+          set({ status: 'ready', error: msg })
+        }
+        return get().products
+      })
+      .finally(() => { inflight = null })
+    return inflight
+  },
+  all: () => get().products,
+  getById: (id) => catalogService.index(get().products).get(id),
+  meta: () => catalogService.index(get().products).meta(),
+}))
 
 export { BRANDS, CATEGORIES, COLORS, SEED_PRODUCTS }
 
-
-/** Shared, cached product index (rebuilt only when owner data changes). */
+/** Shared, cached product index (rebuilt only when the product list changes). */
 export function useCatalogIndex() {
-  const ownerProducts = useCatalog((s) => s.ownerProducts)
-  const deletedIds = useCatalog((s) => s.deletedIds)
-  return catalogService.index(ownerProducts, deletedIds)
+  const products = useCatalog((s) => s.products)
+  return catalogService.index(products)
+}
+
+/** true until the first catalogue load has finished. */
+export function useCatalogLoading() {
+  return useCatalog((s) => s.status !== 'ready')
 }
 
 export function useProducts() {
   return useCatalogIndex().list
 }
 
-/** O(1) lookup by id or slug. */
+/** O(1) lookup by code (p001), slug or database id. */
 export function useProduct(idOrSlug) {
   return useCatalogIndex().get(idOrSlug)
 }

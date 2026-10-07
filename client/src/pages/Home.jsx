@@ -3,7 +3,8 @@ import { ArrowRight } from 'lucide-react'
 import { useMemo } from 'react'
 import ProductCard from '../components/ProductCard'
 import LazyImage from '../components/LazyImage'
-import { useCatalogIndex } from '../store/catalog'
+import { useCatalogIndex, useCatalogLoading } from '../store/catalog'
+import { ProductGridSkeleton } from '../components/Skeleton'
 
 const TILES = [
   { t: 'Women Lawn', to: '/collection?gender=women&category=Lawn', img: '/products/w01.webp' },
@@ -14,6 +15,7 @@ const TILES = [
 
 export default function Home() {
   const index = useCatalogIndex()
+  const loading = useCatalogLoading()
   const { featured, women, men } = useMemo(() => ({
     featured: index.query({ featured: true }).slice(0, 8),
     women: index.query({ gender: 'women', sort: 'rating' }).slice(0, 8),
@@ -58,6 +60,7 @@ export default function Home() {
         </div>
       </section>
 
+      {loading && <section className="container-x py-10"><div className="h-8 w-48 img-skeleton mb-5" /><ProductGridSkeleton count={4} /></section>}
       <Section title="New arrivals" to="/collection?featured=true" products={featured} />
       <Section title="Women" to="/women" products={women} />
       <Section title="Men" to="/men" products={men} />

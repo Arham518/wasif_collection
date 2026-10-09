@@ -24,7 +24,7 @@ export function errorMessage(err, fallback = 'Something went wrong. Please try a
   if (!err) return fallback
   const msg = String(err.message || err.error_description || err || '')
   if (/PGRST205|schema cache|does not exist/i.test(msg) || err.code === 'PGRST205' || err.code === '42P01') {
-    return 'Database setup pending: run supabase/auth_admin_setup.sql in Supabase.'
+    return 'Database setup pending: run the SQL files from the supabase folder (auth_admin_setup.sql, fix_round2.sql, reviews.sql) in Supabase.'
   }
   if (/row-level security|permission denied|42501/i.test(msg) || err.code === '42501') return 'You do not have permission for this action.'
   if (/Failed to fetch|NetworkError|Load failed/i.test(msg)) return 'Network error - check your internet connection.'

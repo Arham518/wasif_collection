@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import Product360 from '../components/Product360'
 import ProductCard from '../components/ProductCard'
+import ProductReviews from '../components/ProductReviews'
 import LazyImage from '../components/LazyImage'
 import { formatPKR } from '../lib/utils'
 import { warmMedia } from '../lib/imageCache'
@@ -11,7 +12,7 @@ import { useUI } from '../store/ui'
 import { useProduct, useCatalogIndex, useCatalogLoading } from '../store/catalog'
 import { PageLoader } from '../components/Skeleton'
 import { toast } from 'sonner'
-import { Heart } from 'lucide-react'
+import { Heart, ZoomOut } from 'lucide-react'
 
 // Keyed by id so size / photo / tab state resets when moving to another product.
 export default function Product() {
@@ -32,6 +33,14 @@ function ProductView({ id }) {
   const openCart = useUI((s) => s.openCart)
   const liked = useWishlist((s) => !!product && s.ids.includes(product.id))
   const toggleWish = useWishlist((s) => s.toggle)
+
+  // Esc returns a zoomed photo to its original size.
+  useEffect(() => {
+    if (!zoom.on) return
+    const onKey = (e) => { if (e.key === 'Escape') setZoom((z) => ({ ...z, on: false })) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [zoom.on])
 
   // Warm every photo of this product so switching thumbnails is instant.
   useEffect(() => {
@@ -75,12 +84,28 @@ function ProductView({ id }) {
           ) : (
             <div>
               <div
-                className="relative w-full aspect-[3/4] border border-[var(--color-line)] bg-white overflow-hidden cursor-zoom-in"
-                onMouseMove={(e) => {
+                className={`relative w-full aspect-[3/4] border border-[var(--color-line)] bg-white overflow-hidden ${zoom.on ? 'cursor-zoom-out touch-none' : 'cursor-zoom-in'}`}
+                role="button"
+                tabIndex={0}
+                aria-label={zoom.on ? 'Zoom out' : 'Zoom in'}
+                aria-pressed={zoom.on}
+                // Click / tap toggles zoom at that point; while zoomed, moving the mouse or finger pans.
+                onClick={(e) => {
                   const r = e.currentTarget.getBoundingClientRect()
-                  setZoom({ on: true, x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 })
+                  const x = ((e.clientX - r.left) / r.width) * 100
+                  const y = ((e.clientY - r.top) / r.height) * 100
+                  setZoom((z) => (z.on ? { ...z, on: false } : { on: true, x, y }))
                 }}
-                onMouseLeave={() => setZoom((z) => ({ ...z, on: false }))}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setZoom((z) => ({ on: !z.on, x: 50, y: 50 })) }
+                }}
+                onPointerMove={(e) => {
+                  if (!zoom.on) return
+                  const r = e.currentTarget.getBoundingClientRect()
+                  const clamp = (v) => Math.min(100, Math.max(0, v))
+                  setZoom({ on: true, x: clamp(((e.clientX - r.left) / r.width) * 100), y: clamp(((e.clientY - r.top) / r.height) * 100) })
+                }}
+                onMouseLeave={() => setZoom((z) => (z.on ? { ...z, on: false } : z))}
               >
                 <LazyImage
                   src={mainSrc}
@@ -89,12 +114,23 @@ function ProductView({ id }) {
                   responsive={false}
                   className="w-full h-full"
                   imgClassName="duration-150"
-                  imgStyle={zoom.on ? { transform: 'scale(1.6)', transformOrigin: `${zoom.x}% ${zoom.y}%` } : undefined}
+                  imgStyle={zoom.on ? { transform: 'scale(2)', transformOrigin: `${zoom.x}% ${zoom.y}%` } : undefined}
                 />
+                {zoom.on && (
+                  <button
+                    type="button"
+                    aria-label="Reset zoom"
+                    title="Back to original size (Esc)"
+                    className="absolute top-2 right-2 z-10 w-9 h-9 rounded-full bg-white/90 border border-[var(--color-line)] grid place-items-center shadow"
+                    onClick={(e) => { e.stopPropagation(); setZoom((z) => ({ ...z, on: false })) }}
+                  >
+                    <ZoomOut size={16} />
+                  </button>
+                )}
               </div>
               <div className="flex gap-2 mt-2 overflow-x-auto">
                 {(product.images || []).map((src, i) => (
-                  <button type="button" key={i} onClick={() => setImg(i)} aria-label={`Photo ${i + 1}`} className={`shrink-0 w-16 h-20 border ${i === img ? 'border-[var(--color-ink)]' : 'border-[var(--color-line)]'}`}>
+                  <button type="button" key={i} onClick={() => { setImg(i); setZoom((z) => ({ ...z, on: false })) }} aria-label={`Photo ${i + 1}`} className={`shrink-0 w-16 h-20 border ${i === img ? 'border-[var(--color-ink)]' : 'border-[var(--color-line)]'}`}>
                     <LazyImage src={src} alt="" responsive={false} className="w-full h-full" />
                   </button>
                 ))}
@@ -132,6 +168,7 @@ function ProductView({ id }) {
           </div>
         </div>
       </div>
+      <ProductReviews product={product.id} />
       {related.length > 0 && (
         <section className="mt-16">
           <h2 className="font-display text-2xl mb-5">You may also like</h2>

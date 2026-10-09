@@ -4,7 +4,7 @@ import { STORE } from '../data/catalog'
 export default function Footer() {
   return (
     <footer className="mt-16 border-t border-[var(--color-line)] bg-[var(--color-ink)] text-[#e8e2d8]">
-      <div className="container-x py-12 grid grid-cols-2 md:grid-cols-4 gap-8 text-sm">
+      <div className="container-x py-12 grid grid-cols-2 md:grid-cols-4 gap-8 text-sm [&>*]:min-w-0">
         <div className="col-span-2 md:col-span-1">
           <div className="font-display text-2xl text-white mb-3">Rana Collection</div>
           <p className="text-[#b9b1a4] leading-relaxed text-[13px] mb-3">
@@ -28,7 +28,7 @@ export default function Footer() {
           <ul className="space-y-2 text-[#b9b1a4]">
             <li>{STORE.address}</li>
             <li><a href={STORE.whatsapp} target="_blank" rel="noreferrer">{STORE.phoneDisplay}</a></li>
-            <li><a href={`mailto:${STORE.email}`}>{STORE.email}</a></li>
+            <li><a href={`mailto:${STORE.email}`} className="break-all">{STORE.email}</a></li>
             <li><Link to="/account">My account</Link></li>
           </ul>
         </div>
